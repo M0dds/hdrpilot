@@ -20,6 +20,11 @@ public sealed class WhitelistForm : Form
     private readonly ModernButton _edit = new();
     private readonly ModernButton _remove = new();
 
+    // Sortierung per Spaltenklick
+    private readonly string[] _columnTitles;
+    private int _sortColumn = -1;
+    private bool _sortAscending = true;
+
     /// <summary>Wird ausgelöst, wenn der Nutzer speichert. Übergibt die aktualisierte Konfig.</summary>
     public event Action<AppConfig>? Saved;
 
@@ -31,6 +36,11 @@ public sealed class WhitelistForm : Form
         _hdr = hdr;
         // Mit einer Kopie arbeiten, damit Abbrechen ohne Speichern möglich ist.
         _config = Clone(config);
+        _columnTitles = new[]
+        {
+            Loc.T("wl.col.name"), Loc.T("wl.col.mode"), Loc.T("wl.col.target"),
+            Loc.T("wl.col.active"), Loc.T("wl.col.procPath")
+        };
 
         Text = Loc.T("wl.title");
         Width = 760;
@@ -89,8 +99,8 @@ public sealed class WhitelistForm : Form
             WrapContents = false,
             Margin = new Padding(0, 0, 0, 10)
         };
-        SetupToolbarButton(_addFile, "＋  " + Loc.T("wl.btn.addFile"), (_, _) => AddFromFile());
-        SetupToolbarButton(_addRunning, "＋  " + Loc.T("wl.btn.addRunning"), (_, _) => AddFromRunning());
+        SetupToolbarButton(_addFile, "＋ " + Loc.T("wl.btn.addFile"), (_, _) => AddFromFile());
+        SetupToolbarButton(_addRunning, "＋ " + Loc.T("wl.btn.addRunning"), (_, _) => AddFromRunning());
         SetupToolbarButton(_edit, Loc.T("wl.btn.edit"), (_, _) => EditSelected());
         SetupToolbarButton(_remove, Loc.T("wl.btn.remove"), (_, _) => RemoveSelected());
         toolbar.Controls.AddRange(new Control[] { _addFile, _addRunning, _edit, _remove });
@@ -105,59 +115,34 @@ public sealed class WhitelistForm : Form
         _list.HideSelection = false;
         // Kleiner Trick für luftigere Zeilen: unsichtbare 1x28-ImageList erhöht die Zeilenhöhe.
         _list.SmallImageList = new ImageList { ImageSize = new Size(1, 28) };
-        _list.Columns.Add(Loc.T("wl.col.name"), 180);
-        _list.Columns.Add(Loc.T("wl.col.mode"), 100);
-        _list.Columns.Add(Loc.T("wl.col.target"), 160);
-        _list.Columns.Add(Loc.T("wl.col.active"), 60);
-        _list.Columns.Add(Loc.T("wl.col.procPath"), 180);
+        _list.Columns.Add(_columnTitles[0], 180);
+        _list.Columns.Add(_columnTitles[1], 100);
+        _list.Columns.Add(_columnTitles[2], 160);
+        _list.Columns.Add(_columnTitles[3], 60);
+        _list.Columns.Add(_columnTitles[4], 180);
         _list.DoubleClick += (_, _) => EditSelected();
         _list.SelectedIndexChanged += (_, _) => UpdateButtonStates();
         _list.Resize += (_, _) => FitLastColumn();
+        _list.ColumnClick += (_, e) => SortBy(e.Column);
         card.Controls.Add(_list);
         root.Controls.Add(card, 0, 3);
 
-        // ---- Fußleiste: Einstellungen links, Abbrechen/Speichern als Gruppe rechts ----
-        var footer = new TableLayoutPanel
-        {
-            Dock = DockStyle.Bottom,
-            ColumnCount = 2,
-            Height = 58,
-            Padding = new Padding(20, 12, 20, 12)
-        };
-        footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));      // Einstellungen
-        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));  // Buttongruppe rechts
-
+        // ---- Fußleiste: Einstellungen links, Abbrechen/Speichern als Gruppe rechts,
+        //      seitlich auf einer Flucht mit dem Inhalt (24px) ----
         var settingsBtn = new ModernButton
         {
-            Text = "⚙  " + Loc.T("set.title"),
+            Text = "⚙ " + Loc.T("set.title"),
             AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Margin = new Padding(0)
+            AutoSizeMode = AutoSizeMode.GrowAndShrink
         };
         settingsBtn.Click += (_, _) => SettingsRequested?.Invoke();
-        footer.Controls.Add(settingsBtn, 0, 0);
 
-        var buttonGroup = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.RightToLeft,
-            Margin = new Padding(0)
-        };
-        // Gleiche Margins, sonst stehen die Buttons im FlowLayout versetzt.
-        var save = new ModernButton
-        {
-            Text = Loc.T("wl.btn.save"),
-            Primary = true,
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Margin = new Padding(8, 0, 0, 0)
-        };
-        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 110, Margin = new Padding(0) };
+        var save = new ModernButton { Text = Loc.T("wl.btn.save"), Primary = true };
+        var cancel = new ModernButton { Text = Loc.T("common.cancel") };
         save.Click += (_, _) => DoSave();
         cancel.Click += (_, _) => Close();
-        buttonGroup.Controls.Add(save);
-        buttonGroup.Controls.Add(cancel);
-        footer.Controls.Add(buttonGroup, 1, 0);
+
+        var footer = CardLayout.Footer(24, settingsBtn, save, cancel);
 
         Controls.Add(root);
         Controls.Add(footer);
@@ -173,6 +158,45 @@ public sealed class WhitelistForm : Form
         b.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         b.Margin = new Padding(0, 0, 8, 0);
         b.Click += onClick;
+    }
+
+    /// <summary>Sortiert die Liste nach der geklickten Spalte (erneuter Klick kehrt um).</summary>
+    private void SortBy(int column)
+    {
+        if (_sortColumn == column)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = true;
+        }
+        _list.ListViewItemSorter = new RowComparer(_sortColumn, _sortAscending);
+        _list.Sort();
+
+        // Pfeil-Indikator im Spaltentitel
+        for (int i = 0; i < _list.Columns.Count; i++)
+        {
+            _list.Columns[i].Text = i == _sortColumn
+                ? _columnTitles[i] + (_sortAscending ? "  ▲" : "  ▼")
+                : _columnTitles[i];
+        }
+    }
+
+    private sealed class RowComparer : System.Collections.IComparer
+    {
+        private readonly int _column;
+        private readonly bool _ascending;
+        public RowComparer(int column, bool ascending) { _column = column; _ascending = ascending; }
+
+        public int Compare(object? x, object? y)
+        {
+            string a = (x as ListViewItem)?.SubItems[_column].Text ?? "";
+            string b = (y as ListViewItem)?.SubItems[_column].Text ?? "";
+            int result = string.Compare(a, b, StringComparison.CurrentCultureIgnoreCase);
+            return _ascending ? result : -result;
+        }
     }
 
     /// <summary>Letzte Spalte füllt die Restbreite - verhindert die horizontale Scrollbar.</summary>

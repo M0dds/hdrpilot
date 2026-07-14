@@ -29,7 +29,7 @@ public sealed class RunningProcessPicker : Form
 
     private void BuildLayout()
     {
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Padding = new Padding(16) };
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Padding = new Padding(24, 18, 24, 8) };
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
@@ -41,6 +41,7 @@ public sealed class RunningProcessPicker : Form
         root.Controls.Add(filterPanel, 0, 0);
 
         var card = new CardPanel { Dock = DockStyle.Fill, Padding = new Padding(8, 6, 8, 8) };
+        _list.Tag = "native-scrollbars"; // lange, scrollende Liste -> dunkle Scrollbars
         _list.Dock = DockStyle.Fill;
         _list.View = View.Details;
         _list.FullRowSelect = true;
@@ -54,22 +55,12 @@ public sealed class RunningProcessPicker : Form
         card.Controls.Add(_list);
         root.Controls.Add(card, 0, 1);
 
-        var buttons = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Bottom,
-            FlowDirection = FlowDirection.RightToLeft,
-            Height = 58,
-            Padding = new Padding(16, 12, 16, 12)
-        };
-        // Gleiche Margins, sonst stehen die Buttons im FlowLayout versetzt.
-        var ok = new ModernButton { Text = Loc.T("picker.select"), Width = 130, Primary = true, DialogResult = DialogResult.OK, Margin = new Padding(8, 0, 0, 0) };
-        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 110, DialogResult = DialogResult.Cancel, Margin = new Padding(0) };
+        var ok = new ModernButton { Text = Loc.T("picker.select"), Primary = true, DialogResult = DialogResult.OK };
+        var cancel = new ModernButton { Text = Loc.T("common.cancel"), DialogResult = DialogResult.Cancel };
         ok.Click += (_, _) => Accept();
-        buttons.Controls.Add(ok);
-        buttons.Controls.Add(cancel);
 
         Controls.Add(root);
-        Controls.Add(buttons);
+        Controls.Add(CardLayout.Footer(24, null, ok, cancel));
         AcceptButton = ok;
         CancelButton = cancel;
     }

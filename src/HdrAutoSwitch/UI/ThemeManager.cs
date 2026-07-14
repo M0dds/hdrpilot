@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using HdrAutoSwitch.Models;
 using Microsoft.Win32;
 
@@ -144,9 +144,10 @@ internal static class ThemeManager
                     break;
 
                 case CheckedListBox clb:
-                    clb.BackColor = p.InputBack;
+                    // In einer Card: rahmenlos in Kartenfarbe, sonst als Eingabefeld.
+                    clb.BackColor = clb.Parent is CardPanel or TableLayoutPanel { Parent: CardPanel } ? p.Surface : p.InputBack;
                     clb.ForeColor = p.Text;
-                    clb.BorderStyle = BorderStyle.FixedSingle;
+                    clb.BorderStyle = clb.Parent is CardPanel or TableLayoutPanel { Parent: CardPanel } ? BorderStyle.None : BorderStyle.FixedSingle;
                     ApplyNativeTheme(clb, "Explorer");
                     break;
 
@@ -250,6 +251,36 @@ internal static class ThemeManager
 
         if (lv.OwnerDraw) return; // schon verdrahtet (Apply wird nur einmal aufgerufen)
         lv.OwnerDraw = true;
+
+        // Flimmerfrei zeichnen (DoubleBuffered ist bei ListView protected).
+        typeof(ListView).GetProperty("DoubleBuffered",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            ?.SetValue(lv, true);
+
+        // Hover-Zeile selbst verfolgen - das System-Hot-Tracking zeichnet im
+        // Dark Mode schwarzen Text auf helle Auswahl.
+        int hotIndex = -1;
+        void InvalidateRow(int index)
+        {
+            if (index >= 0 && index < lv.Items.Count)
+                lv.Invalidate(lv.Items[index].Bounds);
+        }
+        lv.MouseMove += (_, e) =>
+        {
+            int idx = lv.HitTest(e.Location).Item?.Index ?? -1;
+            if (idx == hotIndex) return;
+            int old = hotIndex;
+            hotIndex = idx;
+            InvalidateRow(old);
+            InvalidateRow(hotIndex);
+        };
+        lv.MouseLeave += (_, _) =>
+        {
+            int old = hotIndex;
+            hotIndex = -1;
+            InvalidateRow(old);
+        };
+
         lv.DrawColumnHeader += (_, e) =>
         {
             var pal = Palette;
@@ -257,15 +288,62 @@ internal static class ThemeManager
             e.Graphics.FillRectangle(back, e.Bounds);
             using var line = new Pen(pal.Border);
             e.Graphics.DrawLine(line, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
+            // Einzug wie beim Zeilentext (Spalte 0: 12px, sonst 6px), damit
+            // Header und Inhalt exakt fluchten.
+            int indent = e.ColumnIndex == 0 ? 12 : 6;
+            var textRect = new Rectangle(e.Bounds.X + indent, e.Bounds.Y,
+                e.Bounds.Width - indent - 4, e.Bounds.Height);
             TextRenderer.DrawText(e.Graphics, e.Header?.Text ?? "", lv.Font,
-                Rectangle.Inflate(e.Bounds, -6, 0), pal.TextMuted,
+                textRect, pal.TextMuted,
                 TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
         };
-        lv.DrawItem += (_, e) => e.DrawDefault = true;
-        lv.DrawSubItem += (_, e) => e.DrawDefault = true;
 
-        // Dunkle Scrollbars (Explorer-Dark-Theme).
-        ApplyNativeTheme(lv, "Explorer");
+        // Zeilen komplett selbst zeichnen: abgerundete Hover-/Auswahlfläche mit
+        // Akzentstreifen (wie im Dropdown-Popup), Textfarben aus der Palette.
+        lv.DrawItem += (_, e) =>
+        {
+            var pal = Palette;
+            var g = e.Graphics;
+            Color baseBack = lv.Parent is CardPanel ? pal.Surface : pal.InputBack;
+            using (var back = new SolidBrush(baseBack))
+                g.FillRectangle(back, e.Bounds);
+
+            bool selected = e.Item?.Selected == true;
+            bool hot = e.ItemIndex == hotIndex;
+            if (!selected && !hot) return;
+
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            var r = Rectangle.Inflate(e.Bounds, -4, -2);
+            using var path = Win11Paint.RoundedRect(r, 4);
+            using var fill = new SolidBrush(selected ? pal.Hover : Win11Paint.Blend(baseBack, pal.Hover, 0.55f));
+            g.FillPath(fill, path);
+            if (selected)
+            {
+                using var accent = new SolidBrush(pal.Accent);
+                g.FillRectangle(accent, r.X + 2, r.Y + (r.Height - 12) / 2, 3, 12);
+            }
+        };
+        lv.DrawSubItem += (_, e) =>
+        {
+            var pal = Palette;
+            // Quirk: Für Spalte 0 liefert e.Bounds die GESAMTE Zeile.
+            int cellWidth = e.ColumnIndex == 0 && lv.Columns.Count > 0
+                ? lv.Columns[0].Width
+                : e.Bounds.Width;
+            var textRect = new Rectangle(
+                e.Bounds.X + (e.ColumnIndex == 0 ? 12 : 6), e.Bounds.Y,
+                cellWidth - (e.ColumnIndex == 0 ? 16 : 10), e.Bounds.Height);
+            TextRenderer.DrawText(e.Graphics, e.SubItem?.Text ?? "", lv.Font, textRect, pal.Text,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter |
+                TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+        };
+
+        // Explorer-Dark-Theme liefert dunkle Scrollbars, zeichnet aber auch
+        // Spaltenlinien in den Leerbereich unter den Zeilen. Deshalb nur für
+        // Listen aktivieren, die praktisch immer gefüllt sind und scrollen
+        // (Kennzeichnung per Tag = "native-scrollbars", z. B. Prozess-Picker).
+        if (Equals(lv.Tag, "native-scrollbars"))
+            ApplyNativeTheme(lv, "Explorer");
 
         // Der Füllbereich rechts der letzten Spalte wird vom System-Header
         // gezeichnet - per ItemsView-Theme ebenfalls dunkel schalten.

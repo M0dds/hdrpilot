@@ -89,6 +89,8 @@ internal static class Loc
         ["dlg.exeFilter"] = "Programs (*.exe)|*.exe|All files (*.*)|*.*",
 
         ["entry.title"] = "Edit entry",
+        ["entry.sec.program"] = "Program",
+        ["entry.sec.target"] = "Switch HDR on",
         ["entry.displayName"] = "Display name:",
         ["entry.processName"] = "Process name:",
         ["entry.path"] = "Path to .exe:",
@@ -177,6 +179,8 @@ internal static class Loc
         ["dlg.exeFilter"] = "Programme (*.exe)|*.exe|Alle Dateien (*.*)|*.*",
 
         ["entry.title"] = "Eintrag bearbeiten",
+        ["entry.sec.program"] = "Programm",
+        ["entry.sec.target"] = "HDR schalten auf",
         ["entry.displayName"] = "Anzeigename:",
         ["entry.processName"] = "Prozessname:",
         ["entry.path"] = "Pfad zur .exe:",
@@ -265,6 +269,8 @@ internal static class Loc
         ["dlg.exeFilter"] = "Programmes (*.exe)|*.exe|Tous les fichiers (*.*)|*.*",
 
         ["entry.title"] = "Modifier l'entrée",
+        ["entry.sec.program"] = "Programme",
+        ["entry.sec.target"] = "Activer le HDR sur",
         ["entry.displayName"] = "Nom affiché :",
         ["entry.processName"] = "Nom du processus :",
         ["entry.path"] = "Chemin du .exe :",
@@ -353,6 +359,8 @@ internal static class Loc
         ["dlg.exeFilter"] = "Programas (*.exe)|*.exe|Todos los archivos (*.*)|*.*",
 
         ["entry.title"] = "Editar entrada",
+        ["entry.sec.program"] = "Programa",
+        ["entry.sec.target"] = "Activar HDR en",
         ["entry.displayName"] = "Nombre para mostrar:",
         ["entry.processName"] = "Nombre del proceso:",
         ["entry.path"] = "Ruta al .exe:",

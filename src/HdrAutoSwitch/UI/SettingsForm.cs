@@ -1,4 +1,4 @@
-using HdrAutoSwitch.Models;
+﻿using HdrAutoSwitch.Models;
 
 namespace HdrAutoSwitch.UI;
 
@@ -41,7 +41,7 @@ public sealed class SettingsForm : Form
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
         Font = UiFonts.Body();
-        ClientSize = new Size(500, 560);
+        ClientSize = new Size(500, 590);
 
         BuildLayout();
         LoadFromConfig();
@@ -60,7 +60,7 @@ public sealed class SettingsForm : Form
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
         // ---- Überschrift ----
-        AddRootRow(root, new Label
+        CardLayout.AddRootRow(root, new Label
         {
             Text = Loc.T("set.title"),
             AutoSize = true,
@@ -69,142 +69,59 @@ public sealed class SettingsForm : Form
         });
 
         // ---- Card: Darstellung ----
-        AddRootRow(root, SectionLabel(Loc.T("set.appearance")));
+        CardLayout.AddRootRow(root, CardLayout.Section(Loc.T("set.appearance")));
 
-        var appearance = NewCardTable();
+        var appearance = CardLayout.NewCardTable();
         _language.Items.AddRange(new[]
         {
             Loc.T("theme.system"), "Deutsch", "English", "Français", "Español"
         });
-        AddRow(appearance, Loc.T("set.language"), _language);
+        CardLayout.AddRow(appearance, Loc.T("set.language"), _language);
 
         _theme.Items.AddRange(new[]
         {
             Loc.T("theme.system"), Loc.T("theme.light"), Loc.T("theme.dark")
         });
-        AddRow(appearance, Loc.T("set.theme"), _theme);
+        CardLayout.AddRow(appearance, Loc.T("set.theme"), _theme);
 
-        AddRootRow(root, WrapInCard(appearance));
+        CardLayout.AddRootRow(root, CardLayout.WrapInCard(appearance));
 
         // ---- Card: Verhalten ----
-        AddRootRow(root, SectionLabel(Loc.T("set.behavior")));
+        CardLayout.AddRootRow(root, CardLayout.Section(Loc.T("set.behavior")));
 
-        var behavior = NewCardTable();
+        var behavior = CardLayout.NewCardTable();
         _autostart.Text = Loc.T("tray.menu.autostart");
         _autostart.AutoSize = true;
-        AddWide(behavior, _autostart);
+        CardLayout.AddWide(behavior, _autostart);
 
         _notify.Text = Loc.T("set.notify");
         _notify.AutoSize = true;
-        AddWide(behavior, _notify);
+        CardLayout.AddWide(behavior, _notify);
 
         _restore.Text = Loc.T("set.restore");
         _restore.AutoSize = true;
         _restore.MaximumSize = new Size(415, 0); // Umbruch für lange Übersetzungen
-        AddWide(behavior, _restore);
+        CardLayout.AddWide(behavior, _restore);
 
         _target.Items.AddRange(new[] { Loc.T("target.primary"), Loc.T("target.all") });
-        AddRow(behavior, Loc.T("set.target"), _target);
+        CardLayout.AddRow(behavior, Loc.T("set.target"), _target);
 
-        AddRow(behavior, Loc.T("set.onDelay"), _onDelay);
-        AddRow(behavior, Loc.T("set.offDelay"), _offDelay);
+        CardLayout.AddRow(behavior, Loc.T("set.onDelay"), _onDelay);
+        CardLayout.AddRow(behavior, Loc.T("set.offDelay"), _offDelay);
 
-        AddRootRow(root, WrapInCard(behavior));
+        CardLayout.AddRootRow(root, CardLayout.WrapInCard(behavior));
 
-        // ---- Buttonleiste ----
-        var buttons = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Bottom,
-            FlowDirection = FlowDirection.RightToLeft,
-            Height = 58,
-            Padding = new Padding(20, 12, 20, 12)
-        };
-        // Gleiche Margins, sonst stehen die Buttons im FlowLayout versetzt.
-        var save = new ModernButton { Text = Loc.T("set.save"), Primary = true, Width = 120, Margin = new Padding(8, 0, 0, 0) };
-        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 120, Margin = new Padding(0) };
+        // ---- Fußleiste: seitlich auf einer Flucht mit den Cards (24px) ----
+        var save = new ModernButton { Text = Loc.T("set.save"), Primary = true };
+        var cancel = new ModernButton { Text = Loc.T("common.cancel") };
         save.Click += (_, _) => DoSave();
         // Nicht-modal geöffnet -> DialogResult schließt nicht, explizit schließen.
         cancel.Click += (_, _) => Close();
-        buttons.Controls.Add(save);
-        buttons.Controls.Add(cancel);
 
         Controls.Add(root);
-        Controls.Add(buttons);
+        Controls.Add(CardLayout.Footer(24, null, save, cancel));
         AcceptButton = save;
         CancelButton = cancel;
-    }
-
-    // ---- Layout-Helfer ----
-
-    private static Label SectionLabel(string text) => new()
-    {
-        Text = text,
-        AutoSize = true,
-        Font = UiFonts.Strong(10.5f),
-        Margin = new Padding(2, 0, 0, 6)
-    };
-
-    private static TableLayoutPanel NewCardTable()
-    {
-        var t = new TableLayoutPanel
-        {
-            ColumnCount = 2,
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Dock = DockStyle.Top,
-            Margin = new Padding(0)
-        };
-        t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
-        t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        return t;
-    }
-
-    private static CardPanel WrapInCard(Control content)
-    {
-        var card = new CardPanel
-        {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Padding = new Padding(14, 12, 14, 12),
-            Margin = new Padding(0, 0, 0, 16),
-            Dock = DockStyle.Top
-        };
-        card.Controls.Add(content);
-        return card;
-    }
-
-    private static void AddRootRow(TableLayoutPanel root, Control control)
-    {
-        root.RowCount++;
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        if (control is CardPanel) control.Dock = DockStyle.Top;
-        root.Controls.Add(control, 0, root.RowCount - 1);
-    }
-
-    private static void AddRow(TableLayoutPanel table, string label, Control control, bool fill = true)
-    {
-        table.RowCount++;
-        table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        table.Controls.Add(new Label
-        {
-            Text = label,
-            AutoSize = true,
-            Anchor = AnchorStyles.Left,
-            Margin = new Padding(0, 8, 0, 6)
-        }, 0, table.RowCount - 1);
-
-        if (fill) control.Dock = DockStyle.Fill;
-        control.Margin = new Padding(0, 4, 0, 4);
-        table.Controls.Add(control, 1, table.RowCount - 1);
-    }
-
-    private static void AddWide(TableLayoutPanel table, Control control)
-    {
-        table.RowCount++;
-        table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        control.Margin = new Padding(0, 5, 0, 5);
-        table.Controls.Add(control, 0, table.RowCount - 1);
-        table.SetColumnSpan(control, 2);
     }
 
     private void LoadFromConfig()

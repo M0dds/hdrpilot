@@ -3,8 +3,9 @@ using HdrAutoSwitch.Models;
 namespace HdrAutoSwitch.UI;
 
 /// <summary>
-/// Dialog zum Bearbeiten eines einzelnen Whitelist-Eintrags:
-/// Name, Prozessname/Pfad, Erkennungsmodus, Aktiv-Status und Ziel-Monitore.
+/// Dialog zum Bearbeiten eines einzelnen Whitelist-Eintrags, im selben
+/// Card-Stil wie die Einstellungen: Sektion "Programm" (Name, Pfad,
+/// Erkennung, Aktiv-Status) und Sektion "HDR schalten auf" (Ziel-Monitore).
 /// </summary>
 public sealed class EntryEditForm : Form
 {
@@ -26,13 +27,12 @@ public sealed class EntryEditForm : Form
         Result = entry;
 
         Text = Loc.T("entry.title");
-        Width = 500;
-        Height = 520;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
         Font = UiFonts.Body();
+        ClientSize = new Size(500, 620);
 
         BuildLayout();
         LoadFromEntry(entry);
@@ -44,23 +44,25 @@ public sealed class EntryEditForm : Form
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            Padding = new Padding(16),
-            AutoSize = false
+            ColumnCount = 1,
+            Padding = new Padding(24, 18, 24, 8),
+            AutoScroll = true
         };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-        AddRow(root, Loc.T("entry.displayName"), _name);
-        AddRow(root, Loc.T("entry.processName"), _processName);
+        // ---- Card: Programm ----
+        CardLayout.AddRootRow(root, CardLayout.Section(Loc.T("entry.sec.program")));
+
+        var program = CardLayout.NewCardTable(150);
+        CardLayout.AddRow(program, Loc.T("entry.displayName"), _name);
+        CardLayout.AddRow(program, Loc.T("entry.processName"), _processName);
 
         // Pfad mit Durchsuchen-Button
         var pathPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Height = 36, Margin = new Padding(0, 3, 0, 3) };
         pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
-        _path.Dock = DockStyle.Fill;
         _path.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-        var browse = new ModernButton { Text = "…", Dock = DockStyle.Fill, Padding = new Padding(0), MinimumSize = new Size(0, 30) };
+        var browse = new ModernButton { Text = "…", Dock = DockStyle.Fill, Padding = new Padding(0), MinimumSize = new Size(0, 30), Margin = new Padding(6, 0, 0, 0) };
         browse.Click += (_, _) =>
         {
             using var dlg = new OpenFileDialog { Title = Loc.T("dlg.pickExe"), Filter = Loc.T("dlg.exeFilter") };
@@ -73,92 +75,57 @@ public sealed class EntryEditForm : Form
         };
         pathPanel.Controls.Add(_path, 0, 0);
         pathPanel.Controls.Add(browse, 1, 0);
-        AddLabel(root, Loc.T("entry.path"));
-        root.Controls.Add(pathPanel, 1, root.RowCount - 1);
+        CardLayout.AddRow(program, Loc.T("entry.path"), pathPanel);
 
-        // Erkennungsmodus
+        CardLayout.AddRow(program, Loc.T("entry.match"), _mode);
         _mode.Items.AddRange(new[]
         {
             Loc.T("entry.mode.name"),
             Loc.T("entry.mode.path"),
             Loc.T("entry.mode.namePath")
         });
-        _mode.Dock = DockStyle.Fill;
-        _mode.Margin = new Padding(0, 3, 0, 3);
-        AddLabel(root, Loc.T("entry.match"));
-        root.Controls.Add(_mode, 1, root.RowCount - 1);
 
         _enabled.Text = Loc.T("entry.active");
         _enabled.AutoSize = true;
-        AddLabel(root, "");
-        root.Controls.Add(_enabled, 1, root.RowCount - 1);
+        CardLayout.AddWide(program, _enabled);
 
-        // Monitor-Ziel
+        CardLayout.AddRootRow(root, CardLayout.WrapInCard(program));
+
+        // ---- Card: HDR schalten auf ----
+        CardLayout.AddRootRow(root, CardLayout.Section(Loc.T("entry.sec.target")));
+
+        var target = CardLayout.NewCardTable(150);
         _allMonitors.Text = Loc.T("entry.allHdr");
         _allMonitors.AutoSize = true;
         _allMonitors.CheckedChanged += (_, _) => _monitors.Enabled = _selectedMonitors.Checked;
+        CardLayout.AddWide(target, _allMonitors);
+
         _selectedMonitors.Text = Loc.T("entry.selected");
         _selectedMonitors.AutoSize = true;
         _selectedMonitors.CheckedChanged += (_, _) => _monitors.Enabled = _selectedMonitors.Checked;
+        CardLayout.AddWide(target, _selectedMonitors);
 
-        var monPanel = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.TopDown,
-            WrapContents = false,
-            AutoSize = false,
-            Height = 160
-        };
-        monPanel.Controls.Add(_allMonitors);
-        monPanel.Controls.Add(_selectedMonitors);
-        _monitors.Height = 100;
-        _monitors.Width = 320;
         _monitors.CheckOnClick = true;
+        _monitors.Height = 96;
+        _monitors.Dock = DockStyle.Top;
         foreach (var m in _monitorList)
         {
             string label = m.HdrSupported ? m.FriendlyName : $"{m.FriendlyName} {Loc.T("entry.noHdr")}";
             _monitors.Items.Add(new MonitorItem(m, label));
         }
-        monPanel.Controls.Add(_monitors);
+        CardLayout.AddWide(target, _monitors);
 
-        AddLabel(root, Loc.T("entry.switchOn"));
-        root.Controls.Add(monPanel, 1, root.RowCount - 1);
+        CardLayout.AddRootRow(root, CardLayout.WrapInCard(target));
 
-        // OK / Abbrechen
-        var okCancel = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Bottom,
-            FlowDirection = FlowDirection.RightToLeft,
-            Height = 58,
-            Padding = new Padding(16, 12, 16, 12)
-        };
-        // Gleiche Margins, sonst stehen die Buttons im FlowLayout versetzt.
-        var ok = new ModernButton { Text = Loc.T("common.ok"), Width = 110, Primary = true, DialogResult = DialogResult.OK, Margin = new Padding(8, 0, 0, 0) };
-        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 110, DialogResult = DialogResult.Cancel, Margin = new Padding(0) };
+        // ---- Fußleiste ----
+        var ok = new ModernButton { Text = Loc.T("common.ok"), Primary = true, DialogResult = DialogResult.OK };
+        var cancel = new ModernButton { Text = Loc.T("common.cancel"), DialogResult = DialogResult.Cancel };
         ok.Click += (_, _) => { if (ValidateInput()) { SaveToResult(); } else DialogResult = DialogResult.None; };
-        okCancel.Controls.Add(ok);
-        okCancel.Controls.Add(cancel);
 
         Controls.Add(root);
-        Controls.Add(okCancel);
+        Controls.Add(CardLayout.Footer(24, null, ok, cancel));
         AcceptButton = ok;
         CancelButton = cancel;
-    }
-
-    private static void AddLabel(TableLayoutPanel root, string text)
-    {
-        root.RowCount++;
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        var lbl = new Label { Text = text, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 7, 0, 3) };
-        root.Controls.Add(lbl, 0, root.RowCount - 1);
-    }
-
-    private static void AddRow(TableLayoutPanel root, string label, Control control)
-    {
-        AddLabel(root, label);
-        control.Dock = DockStyle.Fill;
-        control.Margin = new Padding(0, 3, 0, 3);
-        root.Controls.Add(control, 1, root.RowCount - 1);
     }
 
     private void LoadFromEntry(WhitelistEntry e)

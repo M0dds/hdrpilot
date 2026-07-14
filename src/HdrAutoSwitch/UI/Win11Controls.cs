@@ -36,6 +36,133 @@ internal static class UiFonts
     public static Font Display(float size) => new(DisplayFamily, size, FontStyle.Bold);
 }
 
+/// <summary>
+/// Gemeinsame Layout-Bausteine für Dialoge im Card-Stil
+/// (Sektionstitel + abgerundete Karten mit Label/Feld-Zeilen).
+/// </summary>
+internal static class CardLayout
+{
+    /// <summary>Sektionstitel über einer Card.</summary>
+    public static Label Section(string text) => new()
+    {
+        Text = text,
+        AutoSize = true,
+        Font = UiFonts.Strong(10.5f),
+        Margin = new Padding(2, 0, 0, 6)
+    };
+
+    /// <summary>Zweispaltige Tabelle (Label | Feld) für den Inhalt einer Card.</summary>
+    public static TableLayoutPanel NewCardTable(int labelWidth = 180)
+    {
+        var t = new TableLayoutPanel
+        {
+            ColumnCount = 2,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Dock = DockStyle.Top,
+            Margin = new Padding(0)
+        };
+        t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, labelWidth));
+        t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        return t;
+    }
+
+    /// <summary>Packt den Inhalt in eine Card mit einheitlichem Innenabstand.</summary>
+    public static CardPanel WrapInCard(Control content)
+    {
+        var card = new CardPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(14, 12, 14, 12),
+            Margin = new Padding(0, 0, 0, 16),
+            Dock = DockStyle.Top
+        };
+        card.Controls.Add(content);
+        return card;
+    }
+
+    /// <summary>Fügt eine Zeile in die einspaltige Wurzel-Tabelle eines Dialogs ein.</summary>
+    public static void AddRootRow(TableLayoutPanel root, Control control)
+    {
+        root.RowCount++;
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        if (control is CardPanel) control.Dock = DockStyle.Top;
+        root.Controls.Add(control, 0, root.RowCount - 1);
+    }
+
+    /// <summary>Label/Feld-Zeile in einer Card-Tabelle.</summary>
+    public static void AddRow(TableLayoutPanel table, string label, Control control, bool fill = true)
+    {
+        table.RowCount++;
+        table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        table.Controls.Add(new Label
+        {
+            Text = label,
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(0, 8, 0, 6)
+        }, 0, table.RowCount - 1);
+
+        if (fill) control.Dock = DockStyle.Fill;
+        control.Margin = new Padding(0, 4, 0, 4);
+        table.Controls.Add(control, 1, table.RowCount - 1);
+    }
+
+    /// <summary>Zeile über beide Spalten (z. B. Checkboxen, Listen).</summary>
+    public static void AddWide(TableLayoutPanel table, Control control)
+    {
+        table.RowCount++;
+        table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        control.Margin = new Padding(0, 5, 0, 5);
+        table.Controls.Add(control, 0, table.RowCount - 1);
+        table.SetColumnSpan(control, 2);
+    }
+
+    /// <summary>
+    /// Einheitliche Fußleiste: optionaler Button links, OK/Abbrechen-Gruppe rechts.
+    /// Seitliche Innenabstände = <paramref name="sidePadding"/> (auf einer Flucht
+    /// mit dem Inhalt), unten genauso viel Luft wie zu den Seiten.
+    /// </summary>
+    public static TableLayoutPanel Footer(int sidePadding, Control? left, params ModernButton[] rightGroup)
+    {
+        var footer = new TableLayoutPanel
+        {
+            Dock = DockStyle.Bottom,
+            ColumnCount = 2,
+            Height = 34 + 12 + sidePadding,
+            Padding = new Padding(sidePadding, 12, sidePadding, sidePadding)
+        };
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+        if (left is not null)
+        {
+            left.Margin = new Padding(0);
+            footer.Controls.Add(left, 0, 0);
+        }
+
+        var group = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.RightToLeft,
+            Margin = new Padding(0)
+        };
+        // Erster Button der Gruppe = ganz rechts; einheitliche Margins halten alles bündig.
+        for (int i = 0; i < rightGroup.Length; i++)
+        {
+            var b = rightGroup[i];
+            b.AutoSize = true;
+            b.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            b.MinimumSize = new Size(96, 34);
+            b.Margin = i == 0 ? new Padding(8, 0, 0, 0) : new Padding(0);
+            group.Controls.Add(b);
+        }
+        footer.Controls.Add(group, 1, 0);
+        return footer;
+    }
+}
+
 /// <summary>Gemeinsame Zeichen-Helfer.</summary>
 internal static class Win11Paint
 {
@@ -79,7 +206,7 @@ internal sealed class ModernButton : Button
         FlatAppearance.BorderSize = 0;
         Cursor = Cursors.Hand;
         MinimumSize = new Size(0, 34);
-        Padding = new Padding(14, 0, 14, 0);
+        Padding = new Padding(10, 0, 10, 0);
 
         MouseEnter += (_, _) => { _hover = true; Invalidate(); };
         MouseLeave += (_, _) => { _hover = false; _down = false; Invalidate(); };
