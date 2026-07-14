@@ -1,133 +1,113 @@
-﻿<p align="center">
+<p align="center">
   <img src="assets/icon-256.png" width="96" alt="HDR Pilot">
 </p>
 
 <h1 align="center">HDR Pilot</h1>
 
-Eine schlanke Windows-Tray-Anwendung, die HDR automatisch aktiviert, sobald ein
-Programm aus einer selbst gepflegten Whitelist läuft – und HDR wieder ausschaltet,
-sobald alle diese Programme beendet sind.
+<p align="center">
+  Windows tray app that automatically enables HDR when whitelisted games or apps launch —<br>
+  and restores the previous HDR state once they exit.
+</p>
 
-Läuft als Standard-Nutzer (kein Admin, kein Dienst, kein UAC). HDR wird über die
-native Windows-`DisplayConfig`-API geschaltet – zuverlässig und unabhängig von der
-Xbox Game Bar (anders als die Tastenkombination `Win + Alt + B`).
+<p align="center">
+  <a href="https://github.com/M0dds/hdrpilot/releases/latest"><b>⬇ Download the latest release</b></a>
+</p>
 
-## Funktionen
+<p align="center">
+  <img src="assets/screenshot-main.png" width="640" alt="HDR Pilot main window (dark mode)">
+</p>
 
-- **Automatisches HDR pro Programm** über eine Whitelist.
-- **Erkennung wahlweise** über Prozessname (case-insensitive), vollen Pfad oder beides.
-- **Ziel-Monitore konfigurierbar**: global „Nur Primärmonitor" (Standard) oder
-  „Alle HDR-fähigen" (`TargetMode` in der config.json); zusätzlich kann jeder
-  Whitelist-Eintrag eigene Monitore ansteuern.
-- **Zustands-Wiederherstellung**: HDR wird nur eingeschaltet, wo es aus war.
-  Sobald kein Whitelist-Programm mehr läuft (bzw. beim Beenden der App), wird der
-  vorherige Zustand wiederhergestellt (abschaltbar über `RestorePreviousState`).
-- **Referenzzählung + Debounce (1500 ms)**: Mehrere gleichzeitige Programme halten
-  HDR zusammen; kurze Start/Stop-Zyklen (Launcher → Spiel) verursachen kein Flackern.
-- **Ereignisbasierte Prozessüberwachung** via WMI-Abos – kein Polling durch die App.
-  Ohne Adminrechte (`Win32_ProcessStartTrace` erfordert sie) wechselt die App
-  automatisch auf `__InstanceCreation/DeletionEvent (WITHIN 2)`.
-- **Autostart mit Windows** optional (HKCU Run-Key, Toggle direkt im Tray-Menü).
-- **Hell- und Dunkelmodus** (folgt standardmäßig der Windows-Einstellung,
-  umschaltbar in den Einstellungen) inkl. dunkler Titelleiste.
-- **Mehrsprachig**: Deutsch, Englisch, Französisch, Spanisch – Standard ist die
-  Windows-Anzeigesprache, umstellbar in den Einstellungen.
-- **Einstellungsdialog** im Tray-Menü: Sprache, Design, Autostart,
-  Benachrichtigungen, Zustands-Wiederherstellung, Ziel-Monitore, Debounce-Zeiten.
-- **Logging** nach `%AppData%\HdrPilot\log.txt` (rotiert bei ~1 MB).
+## Why?
 
-## Voraussetzungen
+Windows only offers a global HDR toggle (`Win + Alt + B`) — and leaving HDR on all the
+time makes SDR content look washed out. HDR Pilot flips the switch for you: add your
+games to a whitelist, and HDR turns on the moment they start and off once they close.
 
-- Windows 11 (empfohlen 24H2 / Build 26100+). Auf älteren Win11-Builds wird
-  automatisch der Legacy-API-Pfad verwendet. Windows 10 wird nicht unterstützt.
-- HDR-fähiger Monitor + GPU.
-- .NET 8 SDK zum Bauen (`dotnet --version` ≥ 8).
+## Features
 
-## Bauen
+- **Automatic HDR per program** via a whitelist — matched by process name
+  (case-insensitive), full path, or both.
+- **State restoration**: HDR is only enabled where it was off, and the previous
+  state is restored once all whitelisted programs have exited (configurable).
+- **Multi-monitor aware**: target the primary display only (default), all
+  HDR-capable displays, or pick specific monitors per whitelist entry.
+- **Reference counting + debounce**: several programs hold HDR together; quick
+  restarts (launcher → game) don't cause flicker.
+- **Event-based process detection** via WMI subscriptions — no polling by the app.
+- **Runs as a standard user**: no admin rights, no service, no UAC prompts.
+- **Native switching** through the Windows `DisplayConfig` API
+  (Windows 11 24H2 `SET_HDR_STATE` with automatic legacy fallback) — no Xbox Game
+  Bar, no simulated hotkeys.
+- **Fluent-style UI** with light & dark mode (follows Windows by default) in
+  English, German, French, and Spanish.
+- **Optional autostart** with Windows (HKCU run key).
 
-### In VS Code
+## Getting started
 
-1. Ordner in VS Code öffnen (C#-Dev-Kit-Erweiterung empfohlen).
-2. `Terminal → Run Build Task` (`Strg+Umschalt+B`) → **build**.
-3. Zum Starten `F5` (Konfiguration „HDR Pilot (Debug)").
+1. Grab `HdrPilot.exe` from the [latest release](https://github.com/M0dds/hdrpilot/releases/latest) —
+   a single self-contained file, no installation and no .NET runtime required.
+2. Run it. On first start the whitelist window opens; afterwards the app lives in
+   the system tray (left-click the icon to open it again).
+3. Add your games via **Choose .exe file…** or **Running program…**, hit
+   **Save & apply** — done. Language, theme, and behavior live under **Settings**.
 
-### In der Kommandozeile
+> **SmartScreen note:** the executable is not code-signed, so Windows may show
+> "Windows protected your PC" on first launch. Click **More info → Run anyway**.
+
+Configuration is stored as plain JSON in `%AppData%\HdrPilot\config.json`
+(with a log file next to it), so it's easy to inspect, back up, or edit by hand.
+
+## Requirements
+
+- Windows 11 (24H2 / build 26100+ recommended; older Windows 11 builds use the
+  legacy advanced-color API automatically). Windows 10 is not supported.
+- An HDR-capable display and GPU.
+
+## Building from source
+
+Requires the .NET 8 SDK.
 
 ```powershell
-# Debug-Build
+# Debug build
 dotnet build HdrPilot.sln
 
-# Einzelne portable .exe (Release, Framework-abhängig)
-dotnet publish src/HdrPilot/HdrPilot.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
-```
-
-Die fertige `HdrPilot.exe` liegt danach im Ordner `publish/`.
-
-Für eine Version ohne installierte .NET-Runtime (größer, aber überall lauffähig):
-
-```powershell
+# Self-contained single-file release
 dotnet publish src/HdrPilot/HdrPilot.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 ```
 
-## Benutzung
+The finished `HdrPilot.exe` ends up in `publish/`.
 
-1. `HdrPilot.exe` starten. Beim ersten Start (leere Whitelist) öffnet sich das
-   Verwaltungsfenster automatisch. Danach lebt die App im Infobereich (Tray).
-2. **Whitelist verwalten** über das Tray-Menü oder Doppelklick auf das Icon.
-3. Programme hinzufügen: **EXE-Datei wählen…** oder
-   **Laufendes Programm…** (aus der Liste offener Programme).
-4. Pro Eintrag Erkennungsmodus und Ziel-Monitore festlegen.
-5. **Speichern & Anwenden**. Ab jetzt schaltet HDR automatisch.
-6. Sprache, Design (Hell/Dunkel/System) und Verhalten unter
-   **Einstellungen…** im Tray-Menü anpassen.
-
-Start im Hintergrund (für Autostart): `HdrPilot.exe --background`
-
-## Architektur
+### Architecture
 
 ```
 src/HdrPilot/
-├── Models/          Datentypen (Whitelist, Konfig, Monitor, MatchMode)
-├── Native/          P/Invoke-Signaturen für die DisplayConfig-API
+├── Models/          Data types (whitelist, config, monitor, match mode)
+├── Native/          P/Invoke signatures for the DisplayConfig API
 ├── Core/
-│   ├── HdrController      Kapselt die native API (24H2 + Legacy-Fallback)
-│   ├── ProcessWatcher     WMI-Ereignisse für Start/Stop + Enumeration
-│   ├── ConfigStore        JSON-Persistenz in %AppData% + Autostart
-│   └── AutoSwitchEngine    Kernlogik: Referenzzählung, Debounce, Umschalten
-├── UI/              Tray-Kontext, Whitelist-Fenster, Dialoge, Icon
-└── Program.cs       Einstieg (Single-Instance)
+│   ├── HdrController      Wraps the native API (24H2 + legacy fallback)
+│   ├── ProcessWatcher     WMI start/stop events + enumeration
+│   ├── ConfigStore        JSON persistence + autostart registry key
+│   └── AutoSwitchEngine   Core logic: ref-counting, debounce, switching
+├── UI/              Tray context, whitelist window, dialogs, custom controls
+└── Program.cs       Entry point (single instance, data migration)
 ```
 
-Die Konfiguration liegt unter `%AppData%\HdrPilot\config.json` und ist von
-Hand editierbar (u. a. `RestorePreviousState`, `TargetMode`: `PrimaryOnly` |
-`AllHdrCapable`, `OnDebounceMs`/`OffDebounceMs`). Das Fehlerprotokoll liegt daneben
-in `log.txt`.
+The UI is built from fully custom-drawn Windows-11-style controls (buttons,
+dropdowns, text boxes, lists) because native WinForms theming is unreliable in
+dark mode.
 
-## Wichtige Hinweise
+## Good to know
 
-### „Automatically manage color for apps" (ACM, ab 24H2)
+- **Auto Color Management (ACM):** if Windows' "Automatically manage color for
+  apps" is enabled, HDR detection can behave differently. HDR Pilot detects ACM
+  via the 24H2 API, logs a warning, and keeps working.
+- **What it does *not* do:** HDR Pilot doesn't touch tone mapping, SDR brightness,
+  or color calibration. It toggles HDR exactly like `Win + Alt + B` — just
+  automatically and per program/monitor. For calibration, use the Windows HDR
+  Calibration app.
+- Without admin rights, `Win32_ProcessStartTrace` is unavailable; the app then
+  falls back to WMI instance events (`WITHIN 2`) automatically.
 
-Ist diese Windows-Option aktiv (`Einstellungen → System → Anzeige → Farbverwaltung`),
-kann sich HDR-Erkennung und -Umschaltung anders verhalten, weil Windows SDR-Inhalte
-bereits erweitert. Die App erkennt ACM über die 24H2-API, schreibt eine Warnung ins
-Log und funktioniert weiter. Bei Problemen mit dem Schalten die Option testweise
-deaktivieren.
+## License
 
-### SmartScreen / Antivirus
-
-Die selbst gebaute `.exe` ist nicht signiert (Code-Signing-Zertifikate kosten Geld).
-Windows SmartScreen zeigt daher beim ersten Start ggf. „Der Computer wurde durch
-Windows geschützt" → **Weitere Informationen → Trotzdem ausführen**. Kleine, unsignierte
-Tray-Apps, die einen Autostart-Eintrag schreiben und Display-APIs aufrufen, werden von
-manchen Virenscannern heuristisch markiert – bei Bedarf eine Ausnahme hinzufügen.
-
-### Was dieses Tool NICHT tut
-
-Es verändert **nicht** die HDR-Tonemapping-Kurve, SDR-Helligkeit oder Farbkalibrierung.
-Es schaltet HDR nur an und aus – genau das, was `Win + Alt + B` tut, nur automatisiert
-und pro Programm/Monitor steuerbar. Für Kalibrierung bleibt die „Windows HDR Calibration"-App
-aus dem Microsoft Store der richtige Weg.
-
-## Lizenz
-
-Frei zur privaten Nutzung und Anpassung.
+Free for personal use and modification.
