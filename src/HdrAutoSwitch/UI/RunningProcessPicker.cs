@@ -20,7 +20,7 @@ public sealed class RunningProcessPicker : Form
         Width = 580;
         Height = 500;
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5f);
+        Font = UiFonts.Body();
 
         BuildLayout();
         LoadProcesses();
@@ -40,24 +40,29 @@ public sealed class RunningProcessPicker : Form
         filterPanel.Controls.Add(_filter);
         root.Controls.Add(filterPanel, 0, 0);
 
+        var card = new CardPanel { Dock = DockStyle.Fill, Padding = new Padding(8, 6, 8, 8) };
         _list.Dock = DockStyle.Fill;
         _list.View = View.Details;
         _list.FullRowSelect = true;
         _list.MultiSelect = false;
+        _list.SmallImageList = new ImageList { ImageSize = new Size(1, 26) };
         _list.Columns.Add(Loc.T("picker.col.process"), 180);
-        _list.Columns.Add(Loc.T("picker.col.path"), 330);
+        _list.Columns.Add(Loc.T("picker.col.path"), 320);
         _list.DoubleClick += (_, _) => Accept();
-        root.Controls.Add(_list, 0, 1);
+        _list.Resize += (_, _) =>
+            _list.Columns[1].Width = Math.Max(160, _list.ClientSize.Width - _list.Columns[0].Width - 4);
+        card.Controls.Add(_list);
+        root.Controls.Add(card, 0, 1);
 
         var buttons = new FlowLayoutPanel
         {
             Dock = DockStyle.Bottom,
             FlowDirection = FlowDirection.RightToLeft,
-            Height = 52,
-            Padding = new Padding(16, 10, 16, 10)
+            Height = 58,
+            Padding = new Padding(16, 12, 16, 12)
         };
-        var ok = new Button { Text = Loc.T("picker.select"), Width = 120, Height = 32, Tag = "primary", DialogResult = DialogResult.OK };
-        var cancel = new Button { Text = Loc.T("common.cancel"), Width = 110, Height = 32, DialogResult = DialogResult.Cancel };
+        var ok = new ModernButton { Text = Loc.T("picker.select"), Width = 130, Primary = true, DialogResult = DialogResult.OK, Margin = new Padding(8, 0, 0, 0) };
+        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 110, DialogResult = DialogResult.Cancel };
         ok.Click += (_, _) => Accept();
         buttons.Controls.Add(ok);
         buttons.Controls.Add(cancel);

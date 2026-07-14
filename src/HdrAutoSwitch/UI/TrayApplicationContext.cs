@@ -144,6 +144,7 @@ public sealed class TrayApplicationContext : ApplicationContext
             return;
         }
         _whitelistForm = new WhitelistForm(_config, _hdr);
+        _whitelistForm.SettingsRequested += OpenSettings; // Zahnrad im Hauptfenster
         _whitelistForm.Saved += cfg =>
         {
             // Nur die Whitelist übernehmen - Einstellungen könnten sich
@@ -192,10 +193,13 @@ public sealed class TrayApplicationContext : ApplicationContext
             if (_tray.ContextMenuStrip is { } menu)
                 ThemeManager.ApplyToMenu(menu);
 
-            // Offenes Whitelist-Fenster schließen, damit es beim nächsten
-            // Öffnen in neuer Sprache/neuem Theme erscheint.
+            // Offenes Whitelist-Fenster neu aufbauen, damit es sofort in
+            // neuer Sprache/neuem Theme erscheint.
             if (_whitelistForm is { IsDisposed: false })
+            {
                 _whitelistForm.Close();
+                OpenWhitelist();
+            }
         };
         _settingsForm.Show();
         _settingsForm.BringToFront();

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace HdrAutoSwitch.UI;
 
@@ -78,7 +78,7 @@ internal static class Loc
         ["wl.btn.addRunning"] = "From running…",
         ["wl.btn.edit"] = "Edit…",
         ["wl.btn.remove"] = "Remove",
-        ["wl.btn.save"] = "Save && apply",
+        ["wl.btn.save"] = "Save & apply",
         ["wl.allMonitors"] = "All HDR displays",
 
         ["mode.name"] = "Name",
@@ -166,7 +166,7 @@ internal static class Loc
         ["wl.btn.addRunning"] = "Aus laufenden…",
         ["wl.btn.edit"] = "Bearbeiten…",
         ["wl.btn.remove"] = "Entfernen",
-        ["wl.btn.save"] = "Speichern && Anwenden",
+        ["wl.btn.save"] = "Speichern & Anwenden",
         ["wl.allMonitors"] = "Alle HDR-Monitore",
 
         ["mode.name"] = "Name",

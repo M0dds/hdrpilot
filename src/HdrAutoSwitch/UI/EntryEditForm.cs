@@ -11,7 +11,7 @@ public sealed class EntryEditForm : Form
     private readonly TextBox _name = new();
     private readonly TextBox _processName = new();
     private readonly TextBox _path = new();
-    private readonly ComboBox _mode = new();
+    private readonly ModernComboBox _mode = new();
     private readonly CheckBox _enabled = new();
     private readonly CheckedListBox _monitors = new();
     private readonly RadioButton _allMonitors = new();
@@ -32,7 +32,7 @@ public sealed class EntryEditForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5f);
+        Font = UiFonts.Body();
 
         BuildLayout();
         LoadFromEntry(entry);
@@ -55,11 +55,12 @@ public sealed class EntryEditForm : Form
         AddRow(root, Loc.T("entry.processName"), _processName);
 
         // Pfad mit Durchsuchen-Button
-        var pathPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Height = 30, Margin = new Padding(0, 3, 0, 3) };
+        var pathPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Height = 36, Margin = new Padding(0, 3, 0, 3) };
         pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 34));
+        pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
         _path.Dock = DockStyle.Fill;
-        var browse = new Button { Text = "…", Dock = DockStyle.Fill };
+        _path.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        var browse = new ModernButton { Text = "…", Dock = DockStyle.Fill, Padding = new Padding(0), MinimumSize = new Size(0, 30) };
         browse.Click += (_, _) =>
         {
             using var dlg = new OpenFileDialog { Title = Loc.T("dlg.pickExe"), Filter = Loc.T("dlg.exeFilter") };
@@ -76,8 +77,7 @@ public sealed class EntryEditForm : Form
         root.Controls.Add(pathPanel, 1, root.RowCount - 1);
 
         // Erkennungsmodus
-        _mode.DropDownStyle = ComboBoxStyle.DropDownList;
-        _mode.Items.AddRange(new object[]
+        _mode.Items.AddRange(new[]
         {
             Loc.T("entry.mode.name"),
             Loc.T("entry.mode.path"),
@@ -129,11 +129,11 @@ public sealed class EntryEditForm : Form
         {
             Dock = DockStyle.Bottom,
             FlowDirection = FlowDirection.RightToLeft,
-            Height = 52,
-            Padding = new Padding(16, 10, 16, 10)
+            Height = 58,
+            Padding = new Padding(16, 12, 16, 12)
         };
-        var ok = new Button { Text = Loc.T("common.ok"), Width = 100, Height = 32, Tag = "primary", DialogResult = DialogResult.OK };
-        var cancel = new Button { Text = Loc.T("common.cancel"), Width = 100, Height = 32, DialogResult = DialogResult.Cancel };
+        var ok = new ModernButton { Text = Loc.T("common.ok"), Width = 110, Primary = true, DialogResult = DialogResult.OK, Margin = new Padding(8, 0, 0, 0) };
+        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 110, DialogResult = DialogResult.Cancel };
         ok.Click += (_, _) => { if (ValidateInput()) { SaveToResult(); } else DialogResult = DialogResult.None; };
         okCancel.Controls.Add(ok);
         okCancel.Controls.Add(cancel);

@@ -26,8 +26,18 @@ internal sealed record ThemePalette(
 /// </summary>
 internal static class ThemeManager
 {
+    private static AppTheme _mode = AppTheme.System;
+
     /// <summary>Konfigurierter Modus; System folgt der Windows-Einstellung "App-Modus".</summary>
-    public static AppTheme Mode { get; set; } = AppTheme.System;
+    public static AppTheme Mode
+    {
+        get => _mode;
+        set
+        {
+            _mode = value;
+            UpdatePreferredAppMode();
+        }
+    }
 
     public static bool IsDark => Mode switch
     {
@@ -101,6 +111,15 @@ internal static class ThemeManager
         {
             switch (c)
             {
+                case ModernButton or ModernComboBox:
+                    // Zeichnen sich selbst mit Palette-Farben - nichts zu tun.
+                    break;
+
+                case CardPanel card:
+                    // Kinder (z. B. borderlose ListViews) erben die Kartenfarbe.
+                    card.BackColor = p.Surface;
+                    break;
+
                 case Button b:
                     StyleButton(b, p);
                     break;
@@ -109,18 +128,15 @@ internal static class ThemeManager
                     tb.BackColor = p.InputBack;
                     tb.ForeColor = p.Text;
                     tb.BorderStyle = BorderStyle.FixedSingle;
+                    ApplyNativeTheme(tb, "Explorer");
                     break;
 
                 case ComboBox cb:
-                    cb.BackColor = p.InputBack;
-                    cb.ForeColor = p.Text;
-                    cb.FlatStyle = FlatStyle.Flat;
+                    StyleComboBox(cb, p);
                     break;
 
                 case NumericUpDown nud:
-                    nud.BackColor = p.InputBack;
-                    nud.ForeColor = p.Text;
-                    nud.BorderStyle = BorderStyle.FixedSingle;
+                    StyleNumericUpDown(nud, p);
                     break;
 
                 case ListView lv:
@@ -131,6 +147,7 @@ internal static class ThemeManager
                     clb.BackColor = p.InputBack;
                     clb.ForeColor = p.Text;
                     clb.BorderStyle = BorderStyle.FixedSingle;
+                    ApplyNativeTheme(clb, "Explorer");
                     break;
 
                 case Label lbl:
@@ -171,18 +188,72 @@ internal static class ThemeManager
     /// sonst immer im hellen Systemstil erscheinen; die Zeilen zeichnet weiterhin
     /// das System (DrawDefault), nur mit unseren Farben.
     /// </summary>
+    /// <summary>
+    /// DropDownList-Combos ignorieren BackColor teils trotz FlatStyle.Flat.
+    /// OwnerDrawFixed zeichnet Textfläche UND Listeneinträge deterministisch
+    /// mit Palette-Farben; der Flat-Adapter übernimmt Rahmen und Pfeil.
+    /// </summary>
+    private static void StyleComboBox(ComboBox cb, ThemePalette p)
+    {
+        cb.BackColor = p.InputBack;
+        cb.ForeColor = p.Text;
+        cb.FlatStyle = FlatStyle.Flat;
+
+        if (cb.DrawMode == DrawMode.OwnerDrawFixed) return; // schon verdrahtet
+        cb.DrawMode = DrawMode.OwnerDrawFixed;
+        cb.DrawItem += (_, e) =>
+        {
+            var pal = Palette;
+            bool selected = (e.State & DrawItemState.Selected) != 0;
+            bool inList = (e.State & DrawItemState.ComboBoxEdit) == 0;
+            using var back = new SolidBrush(selected && inList ? pal.Hover : pal.InputBack);
+            e.Graphics.FillRectangle(back, e.Bounds);
+            if (e.Index >= 0)
+            {
+                TextRenderer.DrawText(e.Graphics, cb.GetItemText(cb.Items[e.Index]), cb.Font,
+                    Rectangle.Inflate(e.Bounds, -2, 0), pal.Text,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            }
+        };
+    }
+
+    /// <summary>
+    /// NumericUpDown setzt seine Farben beim Handle-Erstellen teilweise zurück;
+    /// daher zusätzlich nach Handle-Erzeugung und beim Anzeigen erneut anwenden.
+    /// </summary>
+    private static void StyleNumericUpDown(NumericUpDown nud, ThemePalette p)
+    {
+        void SetColors()
+        {
+            nud.BackColor = p.InputBack;
+            nud.ForeColor = p.Text;
+            foreach (Control child in nud.Controls)
+            {
+                child.BackColor = p.InputBack;
+                child.ForeColor = p.Text;
+            }
+        }
+        nud.BorderStyle = BorderStyle.FixedSingle;
+        SetColors();
+        nud.HandleCreated += (_, _) => SetColors();
+        if (nud.FindForm() is { } owner)
+            owner.Shown += (_, _) => SetColors();
+    }
+
     private static void StyleListView(ListView lv, ThemePalette p)
     {
-        lv.BackColor = p.InputBack;
+        // In einer Card: rahmenlos und in Kartenfarbe, die Card liefert die Kontur.
+        bool inCard = lv.Parent is CardPanel;
+        lv.BackColor = inCard ? p.Surface : p.InputBack;
         lv.ForeColor = p.Text;
-        lv.BorderStyle = BorderStyle.FixedSingle;
+        lv.BorderStyle = inCard ? BorderStyle.None : BorderStyle.FixedSingle;
 
         if (lv.OwnerDraw) return; // schon verdrahtet (Apply wird nur einmal aufgerufen)
         lv.OwnerDraw = true;
         lv.DrawColumnHeader += (_, e) =>
         {
             var pal = Palette;
-            using var back = new SolidBrush(pal.HeaderBack);
+            using var back = new SolidBrush(lv.Parent is CardPanel ? pal.Surface : pal.HeaderBack);
             e.Graphics.FillRectangle(back, e.Bounds);
             using var line = new Pen(pal.Border);
             e.Graphics.DrawLine(line, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
@@ -192,6 +263,68 @@ internal static class ThemeManager
         };
         lv.DrawItem += (_, e) => e.DrawDefault = true;
         lv.DrawSubItem += (_, e) => e.DrawDefault = true;
+
+        // Dunkle Scrollbars (Explorer-Dark-Theme).
+        ApplyNativeTheme(lv, "Explorer");
+
+        // Der Füllbereich rechts der letzten Spalte wird vom System-Header
+        // gezeichnet - per ItemsView-Theme ebenfalls dunkel schalten.
+        void ThemeHeader()
+        {
+            IntPtr header = SendMessage(lv.Handle, LVM_GETHEADER, IntPtr.Zero, IntPtr.Zero);
+            if (header != IntPtr.Zero)
+                try { SetWindowTheme(header, IsDark ? "DarkMode_ItemsView" : "ItemsView", null); } catch { }
+        }
+        if (lv.IsHandleCreated) ThemeHeader();
+        else lv.HandleCreated += (_, _) => ThemeHeader();
+    }
+
+    private const int LVM_GETHEADER = 0x101F;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    // ---- Native Fenster-Themes (uxtheme) ----
+
+    [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+    private static extern int SetWindowTheme(IntPtr hWnd, string? pszSubAppName, string? pszSubIdList);
+
+    // Undokumentiert, aber seit Win10 1809 stabil und verbreitet im Einsatz:
+    // schaltet die "DarkMode_*"-Fenster-Themes für den Prozess frei.
+    // 0 = Standard, 1 = AllowDark, 2 = ForceDark.
+    [DllImport("uxtheme.dll", EntryPoint = "#135")]
+    private static extern int SetPreferredAppMode(int preferredAppMode);
+
+    [DllImport("uxtheme.dll", EntryPoint = "#136")]
+    private static extern void FlushMenuThemes();
+
+    private static void UpdatePreferredAppMode()
+    {
+        try
+        {
+            SetPreferredAppMode(IsDark ? 2 : 0);
+            FlushMenuThemes();
+        }
+        catch
+        {
+            // Nur Kosmetik - ohne den Aufruf bleiben Combo-Scrollbars hell.
+        }
+    }
+
+    /// <summary>
+    /// Weist einem Control das helle bzw. dunkle native Fenster-Theme zu
+    /// (z. B. "Explorer" / "DarkMode_Explorer" für dunkle Scrollbars,
+    /// "CFD" / "DarkMode_CFD" für dunkle ComboBoxen). Ab Windows 10 1809.
+    /// </summary>
+    private static void ApplyNativeTheme(Control c, string baseTheme)
+    {
+        void Set()
+        {
+            try { SetWindowTheme(c.Handle, IsDark ? "DarkMode_" + baseTheme : baseTheme, null); }
+            catch { /* rein kosmetisch */ }
+        }
+        if (c.IsHandleCreated) Set();
+        else c.HandleCreated += (_, _) => Set();
     }
 
     // ---- Dunkle Titelleiste (DWM) ----
@@ -214,8 +347,8 @@ internal static class ThemeManager
 
     // ---- Kontextmenü (Tray) ----
 
-    /// <summary>Färbt ein ContextMenuStrip passend zum aktuellen Theme.</summary>
-    public static void ApplyToMenu(ContextMenuStrip menu)
+    /// <summary>Färbt ein Menü/Dropdown (inkl. ContextMenuStrip) passend zum aktuellen Theme.</summary>
+    public static void ApplyToMenu(ToolStripDropDown menu)
     {
         var p = Palette;
         menu.Renderer = new ThemedMenuRenderer(p);

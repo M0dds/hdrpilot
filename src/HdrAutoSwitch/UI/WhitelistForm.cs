@@ -4,8 +4,9 @@ using HdrAutoSwitch.Models;
 namespace HdrAutoSwitch.UI;
 
 /// <summary>
-/// Fenster zur Verwaltung der Whitelist: Einträge hinzufügen/bearbeiten/entfernen.
-/// Globale Optionen liegen im <see cref="SettingsForm"/>.
+/// Hauptfenster: Verwaltung der Whitelist im Windows-11-Stil.
+/// Oben Titelzeile mit Zahnrad (öffnet die Einstellungen über
+/// <see cref="SettingsRequested"/>), darunter Command-Bar und Liste in einer Card.
 /// Arbeitet auf einer Kopie; erst "Speichern &amp; Anwenden" übernimmt die Änderungen.
 /// </summary>
 public sealed class WhitelistForm : Form
@@ -14,13 +15,16 @@ public sealed class WhitelistForm : Form
     private readonly AppConfig _config;
 
     private readonly ListView _list = new();
-    private readonly Button _addFile = new();
-    private readonly Button _addRunning = new();
-    private readonly Button _edit = new();
-    private readonly Button _remove = new();
+    private readonly ModernButton _addFile = new();
+    private readonly ModernButton _addRunning = new();
+    private readonly ModernButton _edit = new();
+    private readonly ModernButton _remove = new();
 
     /// <summary>Wird ausgelöst, wenn der Nutzer speichert. Übergibt die aktualisierte Konfig.</summary>
     public event Action<AppConfig>? Saved;
+
+    /// <summary>Der Nutzer möchte die Einstellungen öffnen (Zahnrad-Button).</summary>
+    public event Action? SettingsRequested;
 
     public WhitelistForm(AppConfig config, HdrController hdr)
     {
@@ -29,11 +33,11 @@ public sealed class WhitelistForm : Form
         _config = Clone(config);
 
         Text = Loc.T("wl.title");
-        Width = 680;
-        Height = 500;
-        MinimumSize = new Size(600, 400);
+        Width = 760;
+        Height = 560;
+        MinimumSize = new Size(660, 440);
         StartPosition = FormStartPosition.CenterScreen;
-        Font = new Font("Segoe UI", 9.5f);
+        Font = UiFonts.Body();
 
         BuildLayout();
         RefreshList();
@@ -45,78 +49,111 @@ public sealed class WhitelistForm : Form
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 3,
-            Padding = new Padding(20, 16, 20, 8)
+            ColumnCount = 1,
+            RowCount = 4,
+            Padding = new Padding(24, 20, 24, 8)
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Kopfzeile
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Untertitel
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Command-Bar
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // Card mit Liste
 
-        // Kopfbereich: Titel + erklärender Untertitel
+        // ---- Kopfzeile: Titel links, Zahnrad rechts ----
+        var header = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            AutoSize = true,
+            Margin = new Padding(0)
+        };
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
         var heading = new Label
         {
             Text = Loc.T("wl.heading"),
             AutoSize = true,
-            Font = new Font("Segoe UI Semibold", 14f, FontStyle.Bold),
+            Font = UiFonts.Display(16f),
             Margin = new Padding(0, 0, 0, 2)
         };
-        root.Controls.Add(heading, 0, 0);
-        root.SetColumnSpan(heading, 2);
+        header.Controls.Add(heading, 0, 0);
 
+        var settingsBtn = new ModernButton
+        {
+            Text = "⚙  " + Loc.T("set.title"),
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Margin = new Padding(0, 2, 0, 0)
+        };
+        settingsBtn.Click += (_, _) => SettingsRequested?.Invoke();
+        header.Controls.Add(settingsBtn, 1, 0);
+        root.Controls.Add(header, 0, 0);
+
+        // ---- Untertitel ----
         var hint = new Label
         {
             Text = Loc.T("wl.hint"),
             AutoSize = true,
             Tag = "muted",
-            MaximumSize = new Size(620, 0),
-            Margin = new Padding(0, 0, 0, 12)
+            MaximumSize = new Size(660, 0),
+            Margin = new Padding(0, 0, 0, 14)
         };
         root.Controls.Add(hint, 0, 1);
-        root.SetColumnSpan(hint, 2);
 
-        // Liste
+        // ---- Command-Bar über der Liste ----
+        var toolbar = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            Margin = new Padding(0, 0, 0, 10)
+        };
+        SetupToolbarButton(_addFile, "＋  " + Loc.T("wl.btn.addFile"), (_, _) => AddFromFile());
+        SetupToolbarButton(_addRunning, "＋  " + Loc.T("wl.btn.addRunning"), (_, _) => AddFromRunning());
+        SetupToolbarButton(_edit, Loc.T("wl.btn.edit"), (_, _) => EditSelected());
+        SetupToolbarButton(_remove, Loc.T("wl.btn.remove"), (_, _) => RemoveSelected());
+        toolbar.Controls.AddRange(new Control[] { _addFile, _addRunning, _edit, _remove });
+        root.Controls.Add(toolbar, 0, 2);
+
+        // ---- Liste in einer Card ----
+        var card = new CardPanel { Dock = DockStyle.Fill, Padding = new Padding(10, 8, 10, 10) };
         _list.Dock = DockStyle.Fill;
         _list.View = View.Details;
         _list.FullRowSelect = true;
         _list.MultiSelect = false;
         _list.HideSelection = false;
-        _list.Columns.Add(Loc.T("wl.col.name"), 170);
-        _list.Columns.Add(Loc.T("wl.col.mode"), 90);
-        _list.Columns.Add(Loc.T("wl.col.target"), 150);
-        _list.Columns.Add(Loc.T("wl.col.active"), 55);
-        _list.Columns.Add(Loc.T("wl.col.procPath"), 170);
+        // Kleiner Trick für luftigere Zeilen: unsichtbare 1x28-ImageList erhöht die Zeilenhöhe.
+        _list.SmallImageList = new ImageList { ImageSize = new Size(1, 28) };
+        _list.Columns.Add(Loc.T("wl.col.name"), 180);
+        _list.Columns.Add(Loc.T("wl.col.mode"), 100);
+        _list.Columns.Add(Loc.T("wl.col.target"), 160);
+        _list.Columns.Add(Loc.T("wl.col.active"), 60);
+        _list.Columns.Add(Loc.T("wl.col.procPath"), 180);
         _list.DoubleClick += (_, _) => EditSelected();
         _list.SelectedIndexChanged += (_, _) => UpdateButtonStates();
-        root.Controls.Add(_list, 0, 2);
+        _list.Resize += (_, _) => FitLastColumn();
+        card.Controls.Add(_list);
+        root.Controls.Add(card, 0, 3);
 
-        // Buttonspalte rechts
-        var btnPanel = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.TopDown,
-            WrapContents = false,
-            Padding = new Padding(12, 0, 0, 0)
-        };
-        SetupButton(_addFile, Loc.T("wl.btn.addFile"), (_, _) => AddFromFile());
-        SetupButton(_addRunning, Loc.T("wl.btn.addRunning"), (_, _) => AddFromRunning());
-        SetupButton(_edit, Loc.T("wl.btn.edit"), (_, _) => EditSelected());
-        SetupButton(_remove, Loc.T("wl.btn.remove"), (_, _) => RemoveSelected());
-        btnPanel.Controls.AddRange(new Control[] { _addFile, _addRunning, _edit, _remove });
-        root.Controls.Add(btnPanel, 1, 2);
-
-        // Fußleiste: Speichern / Abbrechen
+        // ---- Fußleiste: Speichern / Abbrechen ----
         var footer = new FlowLayoutPanel
         {
             Dock = DockStyle.Bottom,
             FlowDirection = FlowDirection.RightToLeft,
-            Height = 54,
-            Padding = new Padding(16, 10, 16, 10)
+            Height = 58,
+            Padding = new Padding(20, 12, 20, 12)
         };
-        var save = new Button { Text = Loc.T("wl.btn.save"), AutoSize = true, Height = 32, Padding = new Padding(10, 0, 10, 0), Tag = "primary" };
-        var cancel = new Button { Text = Loc.T("common.cancel"), Width = 110, Height = 32, DialogResult = DialogResult.Cancel };
+        var save = new ModernButton
+        {
+            Text = Loc.T("wl.btn.save"),
+            Primary = true,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Margin = new Padding(8, 0, 0, 0)
+        };
+        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 110, DialogResult = DialogResult.Cancel };
         save.Click += (_, _) => DoSave();
         cancel.Click += (_, _) => Close();
         footer.Controls.Add(save);
@@ -129,13 +166,23 @@ public sealed class WhitelistForm : Form
         UpdateButtonStates();
     }
 
-    private static void SetupButton(Button b, string text, EventHandler onClick)
+    private static void SetupToolbarButton(ModernButton b, string text, EventHandler onClick)
     {
         b.Text = text;
-        b.Width = 150;
-        b.Height = 32;
-        b.Margin = new Padding(0, 0, 0, 8);
+        b.AutoSize = true;
+        b.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        b.Margin = new Padding(0, 0, 8, 0);
         b.Click += onClick;
+    }
+
+    /// <summary>Letzte Spalte füllt die Restbreite - verhindert die horizontale Scrollbar.</summary>
+    private void FitLastColumn()
+    {
+        if (_list.Columns.Count == 0) return;
+        int others = 0;
+        for (int i = 0; i < _list.Columns.Count - 1; i++)
+            others += _list.Columns[i].Width;
+        _list.Columns[^1].Width = Math.Max(120, _list.ClientSize.Width - others - 4);
     }
 
     private void UpdateButtonStates()
@@ -143,6 +190,8 @@ public sealed class WhitelistForm : Form
         bool hasSel = _list.SelectedItems.Count > 0;
         _edit.Enabled = hasSel;
         _remove.Enabled = hasSel;
+        _edit.Invalidate();
+        _remove.Invalidate();
     }
 
     private void RefreshList()
