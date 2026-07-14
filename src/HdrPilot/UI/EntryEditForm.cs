@@ -14,13 +14,15 @@ public sealed class EntryEditForm : Form
     private readonly ModernTextBox _processName = new();
     private readonly ModernTextBox _path = new();
     private readonly ModernComboBox _mode = new();
-    private readonly CheckBox _enabled = new();
-    private readonly CheckedListBox _monitors = new();
-    private readonly RadioButton _allMonitors = new();
-    private readonly RadioButton _selectedMonitors = new();
-    private readonly CheckBox _autoHdr = new();
+    private readonly ModernCheckBox _enabled = new();
+    private readonly ModernCheckedListBox _monitors = new();
+    private readonly ModernRadioButton _allMonitors = new();
+    private readonly ModernRadioButton _selectedMonitors = new();
+    private readonly ModernRadioButton _hdrEnhanceOff = new();
+    private readonly ModernRadioButton _hdrEnhanceAutoHdr = new();
+    private readonly ModernRadioButton _hdrEnhanceRtx = new();
     private readonly List<MonitorInfo> _monitorList;
-    private bool _loading = true; // unterdrückt die RTX-Prüfung beim Befüllen des Dialogs
+    private bool _loading = true; // unterdrückt die Warn-Prüfungen beim Befüllen des Dialogs
 
     public WhitelistEntry Result { get; private set; }
 
@@ -151,32 +153,33 @@ public sealed class EntryEditForm : Form
 
         CardLayout.AddRootRow(root, CardLayout.WrapInCard(target));
 
-        // ---- Card: Windows Auto-HDR ----
-        CardLayout.AddRootRow(root, CardLayout.Section(Loc.T("entry.sec.autoHdr")));
+        // ---- Card: HDR-Verbesserung (Auto-HDR / RTX HDR) ----
+        CardLayout.AddRootRow(root, CardLayout.Section(Loc.T("entry.sec.hdrEnhance")));
 
-        var autoHdrCard = CardLayout.NewCardTable(150);
-        _autoHdr.Text = Loc.T("entry.autoHdr.enable");
-        _autoHdr.AutoSize = true;
-        _autoHdr.Margin = new Padding(0, 2, 0, 2);
-        _autoHdr.CheckedChanged += (_, _) => OnAutoHdrToggled();
-        CardLayout.AddWide(autoHdrCard, _autoHdr);
-
-        string hintText = Loc.T("entry.autoHdr.hint");
-        // Ist Auto-HDR global aus (wie bei aktivem "AutoHDREnable=0"), klarstellen,
-        // dass die Per-App-Einstellung das für dieses Programm übersteuert.
-        if (AutoHdrController.IsGlobalAutoHdrEnabled() == false)
-            hintText += "\n" + Loc.T("entry.autoHdr.globalOff");
-        var autoHdrHint = new Label
+        var enhanceCard = CardLayout.NewCardTable(150);
+        _hdrEnhanceOff.Text = Loc.T("entry.hdrEnhance.off");
+        _hdrEnhanceAutoHdr.Text = Loc.T("entry.hdrEnhance.autoHdr");
+        _hdrEnhanceRtx.Text = Loc.T("entry.hdrEnhance.rtx");
+        foreach (var rb in new[] { _hdrEnhanceOff, _hdrEnhanceAutoHdr, _hdrEnhanceRtx })
         {
-            Text = hintText,
+            rb.AutoSize = true;
+            rb.Margin = new Padding(0, 2, 0, 2);
+            CardLayout.AddWide(enhanceCard, rb);
+        }
+        _hdrEnhanceAutoHdr.CheckedChanged += (_, _) => OnAutoHdrSelected();
+        _hdrEnhanceRtx.CheckedChanged += (_, _) => OnRtxHdrSelected();
+
+        var enhanceHint = new Label
+        {
+            Text = Loc.T("entry.hdrEnhance.hint"),
             AutoSize = true,
             Tag = "muted",
             MaximumSize = new Size(400, 0),
             Margin = new Padding(24, 0, 0, 2)
         };
-        CardLayout.AddWide(autoHdrCard, autoHdrHint);
+        CardLayout.AddWide(enhanceCard, enhanceHint);
 
-        CardLayout.AddRootRow(root, CardLayout.WrapInCard(autoHdrCard));
+        CardLayout.AddRootRow(root, CardLayout.WrapInCard(enhanceCard));
 
         // ---- Fußleiste ----
         var ok = new ModernButton { Text = Loc.T("common.ok"), Primary = true, DialogResult = DialogResult.OK };
@@ -217,26 +220,48 @@ public sealed class EntryEditForm : Form
                 _monitors.SetItemChecked(i, true);
         }
 
-        _autoHdr.Checked = e.EnableAutoHdr;
+        // RTX HDR gewinnt bei (theoretisch) widersprüchlicher Konfiguration.
+        _hdrEnhanceRtx.Checked = e.EnableRtxHdr;
+        _hdrEnhanceAutoHdr.Checked = !e.EnableRtxHdr && e.EnableAutoHdr;
+        _hdrEnhanceOff.Checked = !e.EnableRtxHdr && !e.EnableAutoHdr;
         _loading = false;
     }
 
+    /// <summary>Exe-Name aus Pfad oder Prozessname für die Warn-Prüfungen.</summary>
+    private string CurrentExeName()
+    {
+        string source = !string.IsNullOrWhiteSpace(_path.Text) ? _path.Text : _processName.Text;
+        return string.IsNullOrWhiteSpace(source) ? "" : Path.GetFileName(source.Trim());
+    }
+
     /// <summary>
-    /// Beim Setzen des Auto-HDR-Hakens: prüfen, ob NVIDIA RTX HDR für dieses
-    /// Spiel oder global aktiv ist - beide zusammen führen zu doppeltem
+    /// Bei Auswahl von Auto-HDR: prüfen, ob NVIDIA RTX HDR für dieses Spiel
+    /// oder global aktiv ist - beide zusammen führen zu doppeltem
     /// Tone-Mapping, davor wird gewarnt.
     /// </summary>
-    private void OnAutoHdrToggled()
+    private void OnAutoHdrSelected()
     {
-        if (_loading || !_autoHdr.Checked) return;
+        if (_loading || !_hdrEnhanceAutoHdr.Checked) return;
 
-        string source = !string.IsNullOrWhiteSpace(_path.Text) ? _path.Text : _processName.Text;
-        string exeName = string.IsNullOrWhiteSpace(source) ? "" : Path.GetFileName(source.Trim());
-
-        if (RtxHdrDetector.IsRtxHdrEnabled(exeName) == true)
+        if (RtxHdrController.IsRtxHdrEnabled(CurrentExeName()) == true)
         {
             MessageBox.Show(this, Loc.T("entry.autoHdr.rtxMsg"),
                 Loc.T("entry.autoHdr.rtxTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    /// <summary>
+    /// Bei Auswahl von RTX HDR: warnen, wenn kein NVIDIA-Treiber mit
+    /// DRS-Interface erreichbar ist - die Einstellung hätte dann keine Wirkung.
+    /// </summary>
+    private void OnRtxHdrSelected()
+    {
+        if (_loading || !_hdrEnhanceRtx.Checked) return;
+
+        if (!RtxHdrController.IsNvapiAvailable())
+        {
+            MessageBox.Show(this, Loc.T("entry.rtxHdr.noNvidiaMsg"),
+                Loc.T("entry.rtxHdr.noNvidiaTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
@@ -249,7 +274,7 @@ public sealed class EntryEditForm : Form
             return false;
         }
         // Windows speichert Auto-HDR pro Exe-Pfad - ohne Pfad kein Auto-HDR.
-        if (_autoHdr.Checked && string.IsNullOrWhiteSpace(_path.Text))
+        if (_hdrEnhanceAutoHdr.Checked && string.IsNullOrWhiteSpace(_path.Text))
         {
             MessageBox.Show(this, Loc.T("entry.autoHdr.needPathMsg"),
                 Loc.T("entry.autoHdr.needPathTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -282,7 +307,8 @@ public sealed class EntryEditForm : Form
             },
             Enabled = _enabled.Checked,
             TargetMonitorIds = targets,
-            EnableAutoHdr = _autoHdr.Checked
+            EnableAutoHdr = _hdrEnhanceAutoHdr.Checked,
+            EnableRtxHdr = _hdrEnhanceRtx.Checked
         };
     }
 
