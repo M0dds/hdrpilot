@@ -14,6 +14,32 @@ internal static class TrayIconFactory
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool DestroyIcon(IntPtr handle);
 
+    private static Icon? _appIcon;
+
+    /// <summary>
+    /// Das eingebettete Multi-Size-App-Icon (Assets\app.ico) für Fenster
+    /// (Titelleiste + Taskbar). Fallback: zur Laufzeit gezeichnete Variante.
+    /// </summary>
+    public static Icon AppIcon
+    {
+        get
+        {
+            if (_appIcon is null)
+            {
+                try
+                {
+                    using var stream = typeof(TrayIconFactory).Assembly
+                        .GetManifestResourceStream("HdrPilot.Assets.app.ico");
+                    if (stream is not null)
+                        _appIcon = new Icon(stream);
+                }
+                catch { /* Fallback unten */ }
+                _appIcon ??= Create();
+            }
+            return _appIcon;
+        }
+    }
+
     public static Icon Create()
     {
         const int size = 32;

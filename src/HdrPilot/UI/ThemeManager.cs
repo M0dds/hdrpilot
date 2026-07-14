@@ -101,6 +101,7 @@ internal static class ThemeManager
         var p = Palette;
         form.BackColor = p.WindowBack;
         form.ForeColor = p.Text;
+        form.Icon = TrayIconFactory.AppIcon; // Titelleisten-/Taskbar-Icon
         ApplyDarkTitleBar(form);
         StyleChildren(form, p);
     }

@@ -31,4 +31,10 @@
     <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Auch als Ressource einbetten: ApplicationIcon setzt nur das Explorer-Icon
+         der EXE; für Titelleiste/Taskbar wird Form.Icon daraus geladen. -->
+    <EmbeddedResource Include="Assets\app.ico" />
+  </ItemGroup>
+
 </Project>
