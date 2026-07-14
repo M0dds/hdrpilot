@@ -118,7 +118,7 @@ public sealed class WhitelistForm : Form
         _list.Columns.Add(_columnTitles[0], 180);
         _list.Columns.Add(_columnTitles[1], 100);
         _list.Columns.Add(_columnTitles[2], 160);
-        _list.Columns.Add(_columnTitles[3], 60);
+        _list.Columns.Add(_columnTitles[3], 76);
         _list.Columns.Add(_columnTitles[4], 180);
         _list.DoubleClick += (_, _) => EditSelected();
         _list.SelectedIndexChanged += (_, _) => UpdateButtonStates();
@@ -184,13 +184,10 @@ public sealed class WhitelistForm : Form
         _list.ListViewItemSorter = new RowComparer(_sortColumn, _sortAscending);
         _list.Sort();
 
-        // Pfeil-Indikator im Spaltentitel
+        // Sortier-Indikator: Tag steuert das Chevron im selbst gezeichneten Header.
         for (int i = 0; i < _list.Columns.Count; i++)
-        {
-            _list.Columns[i].Text = i == _sortColumn
-                ? _columnTitles[i] + (_sortAscending ? "  ▲" : "  ▼")
-                : _columnTitles[i];
-        }
+            _list.Columns[i].Tag = i == _sortColumn ? (_sortAscending ? "asc" : "desc") : null;
+        ThemeManager.RefreshListViewHeader(_list);
     }
 
     private sealed class RowComparer : System.Collections.IComparer

@@ -289,14 +289,34 @@ internal static class ThemeManager
             e.Graphics.FillRectangle(back, e.Bounds);
             using var line = new Pen(pal.Border);
             e.Graphics.DrawLine(line, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
+            // Sortier-Indikator: Spalten-Tag "asc"/"desc" -> Chevron rechtsbündig
+            // zeichnen (statt Text-Suffix, das in schmalen Spalten abgeschnitten würde).
+            string? sort = e.Header?.Tag as string;
+            int reserved = sort is null ? 4 : 18;
+
             // Einzug wie beim Zeilentext (Spalte 0: 12px, sonst 6px), damit
             // Header und Inhalt exakt fluchten.
             int indent = e.ColumnIndex == 0 ? 12 : 6;
             var textRect = new Rectangle(e.Bounds.X + indent, e.Bounds.Y,
-                e.Bounds.Width - indent - 4, e.Bounds.Height);
+                e.Bounds.Width - indent - reserved, e.Bounds.Height);
             TextRenderer.DrawText(e.Graphics, e.Header?.Text ?? "", lv.Font,
                 textRect, pal.TextMuted,
                 TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+
+            if (sort is "asc" or "desc")
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                int cx = e.Bounds.Right - 13;
+                int cy = e.Bounds.Y + e.Bounds.Height / 2;
+                using var chevron = new Pen(pal.TextMuted, 1.6f)
+                {
+                    StartCap = System.Drawing.Drawing2D.LineCap.Round,
+                    EndCap = System.Drawing.Drawing2D.LineCap.Round
+                };
+                e.Graphics.DrawLines(chevron, sort == "asc"
+                    ? new[] { new Point(cx - 4, cy + 2), new Point(cx, cy - 2), new Point(cx + 4, cy + 2) }
+                    : new[] { new Point(cx - 4, cy - 2), new Point(cx, cy + 2), new Point(cx + 4, cy - 2) });
+            }
         };
 
         // Zeilen komplett selbst zeichnen: abgerundete Hover-/Auswahlfläche mit
@@ -362,6 +382,22 @@ internal static class ThemeManager
 
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool InvalidateRect(IntPtr hWnd, IntPtr lpRect, bool bErase);
+
+    /// <summary>
+    /// Zeichnet den Spaltenkopf einer ListView neu (eigenes Fenster - wird von
+    /// Control.Invalidate nicht erfasst). Nötig z. B. nach Änderung des
+    /// Sortier-Indikators über Column.Tag.
+    /// </summary>
+    public static void RefreshListViewHeader(ListView lv)
+    {
+        if (!lv.IsHandleCreated) return;
+        IntPtr header = SendMessage(lv.Handle, LVM_GETHEADER, IntPtr.Zero, IntPtr.Zero);
+        if (header != IntPtr.Zero)
+            InvalidateRect(header, IntPtr.Zero, true);
+    }
 
     // ---- Native Fenster-Themes (uxtheme) ----
 
