@@ -37,6 +37,10 @@ public sealed class TrayApplicationContext : ApplicationContext
         Loc.Apply(_config.Language);
         ThemeManager.Mode = _config.Theme;
 
+        // Auto-HDR-Registry-Tokens für konfigurierte Einträge sicherstellen
+        // (idempotent; repariert z. B. von außen entfernte Einstellungen).
+        AutoHdrController.EnsureApplied(_config.Whitelist);
+
         _engine = new AutoSwitchEngine(_hdr, _watcher, _config);
 
         _tray = new NotifyIcon
@@ -154,7 +158,11 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             // Nur die Whitelist übernehmen - Einstellungen könnten sich
             // parallel über den Einstellungsdialog geändert haben.
+            var oldWhitelist = _config.Whitelist;
             _config.Whitelist = cfg.Whitelist;
+            // Auto-HDR-Registry abgleichen: entfernte/abgewählte Einträge
+            // zurücksetzen, gewünschte setzen.
+            AutoHdrController.ApplyWhitelistChange(oldWhitelist, _config.Whitelist);
             _store.Save(_config);
             _engine.UpdateConfig(_config);
             // Nach dem Speichern erneut laufende Prozesse prüfen.

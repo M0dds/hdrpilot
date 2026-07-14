@@ -106,6 +106,15 @@ internal static class Loc
         ["entry.incompleteTitle"] = "Incomplete",
         ["entry.incompleteMsg"] = "Please provide at least a process name or a path.",
 
+        ["entry.sec.autoHdr"] = "Windows Auto HDR",
+        ["entry.autoHdr.enable"] = "Enable Windows Auto HDR for this program",
+        ["entry.autoHdr.hint"] = "Sets the Auto HDR preference for this .exe in the Windows graphics settings (requires the path). Not recommended together with NVIDIA RTX HDR – both tone-map the image and will conflict.",
+        ["entry.autoHdr.globalOff"] = "Note: Auto HDR is currently turned off globally in Windows; this per-app setting overrides it for this program.",
+        ["entry.autoHdr.needPathTitle"] = "Path required",
+        ["entry.autoHdr.needPathMsg"] = "Windows stores Auto HDR per .exe path. Please provide the full path to the program.",
+        ["entry.autoHdr.rtxTitle"] = "RTX HDR conflict",
+        ["entry.autoHdr.rtxMsg"] = "NVIDIA RTX HDR appears to be enabled for this program (or globally in the NVIDIA app). Auto HDR and RTX HDR conflict – both apply HDR tone mapping. Please use only one of them.",
+
         ["picker.title"] = "Select a running program",
         ["picker.filter"] = "Filter:",
         ["picker.col.process"] = "Process",
@@ -195,6 +204,15 @@ internal static class Loc
         ["entry.mode.namePath"] = "Name oder Pfad (empfohlen)",
         ["entry.incompleteTitle"] = "Unvollständig",
         ["entry.incompleteMsg"] = "Bitte mindestens einen Prozessnamen oder einen Pfad angeben.",
+
+        ["entry.sec.autoHdr"] = "Windows Auto-HDR",
+        ["entry.autoHdr.enable"] = "Windows Auto-HDR für dieses Programm aktivieren",
+        ["entry.autoHdr.hint"] = "Setzt die Auto-HDR-Einstellung für diese .exe in den Windows-Grafikeinstellungen (Pfad erforderlich). Nicht zusammen mit NVIDIA RTX HDR empfohlen – beide wenden Tone-Mapping an und geraten in Konflikt.",
+        ["entry.autoHdr.globalOff"] = "Hinweis: Auto-HDR ist in Windows global ausgeschaltet; diese Per-App-Einstellung übersteuert das für dieses Programm.",
+        ["entry.autoHdr.needPathTitle"] = "Pfad erforderlich",
+        ["entry.autoHdr.needPathMsg"] = "Windows speichert Auto-HDR pro .exe-Pfad. Bitte den vollständigen Pfad zum Programm angeben.",
+        ["entry.autoHdr.rtxTitle"] = "RTX-HDR-Konflikt",
+        ["entry.autoHdr.rtxMsg"] = "NVIDIA RTX HDR ist für dieses Programm (oder global in der NVIDIA App) offenbar aktiviert. Auto-HDR und RTX HDR geraten in Konflikt – beide wenden HDR-Tone-Mapping an. Bitte nur eines von beiden verwenden.",
 
         ["picker.title"] = "Laufendes Programm auswählen",
         ["picker.filter"] = "Filter:",
@@ -286,6 +304,15 @@ internal static class Loc
         ["entry.incompleteTitle"] = "Incomplet",
         ["entry.incompleteMsg"] = "Veuillez indiquer au moins un nom de processus ou un chemin.",
 
+        ["entry.sec.autoHdr"] = "Auto HDR Windows",
+        ["entry.autoHdr.enable"] = "Activer Auto HDR Windows pour ce programme",
+        ["entry.autoHdr.hint"] = "Définit la préférence Auto HDR de ce .exe dans les paramètres graphiques de Windows (chemin requis). Déconseillé avec NVIDIA RTX HDR – les deux appliquent un tone mapping et entrent en conflit.",
+        ["entry.autoHdr.globalOff"] = "Remarque : Auto HDR est désactivé globalement dans Windows ; ce réglage par application prévaut pour ce programme.",
+        ["entry.autoHdr.needPathTitle"] = "Chemin requis",
+        ["entry.autoHdr.needPathMsg"] = "Windows enregistre Auto HDR par chemin d'.exe. Veuillez indiquer le chemin complet du programme.",
+        ["entry.autoHdr.rtxTitle"] = "Conflit RTX HDR",
+        ["entry.autoHdr.rtxMsg"] = "NVIDIA RTX HDR semble activé pour ce programme (ou globalement dans l'application NVIDIA). Auto HDR et RTX HDR entrent en conflit – les deux appliquent un tone mapping HDR. N'utilisez que l'un des deux.",
+
         ["picker.title"] = "Choisir un programme en cours d'exécution",
         ["picker.filter"] = "Filtre :",
         ["picker.col.process"] = "Processus",
@@ -375,6 +402,15 @@ internal static class Loc
         ["entry.mode.namePath"] = "Nombre o ruta (recomendado)",
         ["entry.incompleteTitle"] = "Incompleto",
         ["entry.incompleteMsg"] = "Indica al menos un nombre de proceso o una ruta.",
+
+        ["entry.sec.autoHdr"] = "Auto HDR de Windows",
+        ["entry.autoHdr.enable"] = "Activar Auto HDR de Windows para este programa",
+        ["entry.autoHdr.hint"] = "Establece la preferencia de Auto HDR de este .exe en la configuración gráfica de Windows (requiere la ruta). No se recomienda junto con NVIDIA RTX HDR: ambos aplican tone mapping y entran en conflicto.",
+        ["entry.autoHdr.globalOff"] = "Nota: Auto HDR está desactivado globalmente en Windows; este ajuste por aplicación tiene prioridad para este programa.",
+        ["entry.autoHdr.needPathTitle"] = "Ruta necesaria",
+        ["entry.autoHdr.needPathMsg"] = "Windows guarda Auto HDR por ruta de .exe. Indica la ruta completa del programa.",
+        ["entry.autoHdr.rtxTitle"] = "Conflicto con RTX HDR",
+        ["entry.autoHdr.rtxMsg"] = "NVIDIA RTX HDR parece estar activado para este programa (o globalmente en la aplicación NVIDIA). Auto HDR y RTX HDR entran en conflicto: ambos aplican tone mapping HDR. Usa solo uno de los dos.",
 
         ["picker.title"] = "Seleccionar un programa en ejecución",
         ["picker.filter"] = "Filtro:",

@@ -1,4 +1,5 @@
-﻿using HdrPilot.Models;
+﻿using HdrPilot.Core;
+using HdrPilot.Models;
 
 namespace HdrPilot.UI;
 
@@ -17,7 +18,9 @@ public sealed class EntryEditForm : Form
     private readonly CheckedListBox _monitors = new();
     private readonly RadioButton _allMonitors = new();
     private readonly RadioButton _selectedMonitors = new();
+    private readonly CheckBox _autoHdr = new();
     private readonly List<MonitorInfo> _monitorList;
+    private bool _loading = true; // unterdrückt die RTX-Prüfung beim Befüllen des Dialogs
 
     public WhitelistEntry Result { get; private set; }
 
@@ -148,6 +151,33 @@ public sealed class EntryEditForm : Form
 
         CardLayout.AddRootRow(root, CardLayout.WrapInCard(target));
 
+        // ---- Card: Windows Auto-HDR ----
+        CardLayout.AddRootRow(root, CardLayout.Section(Loc.T("entry.sec.autoHdr")));
+
+        var autoHdrCard = CardLayout.NewCardTable(150);
+        _autoHdr.Text = Loc.T("entry.autoHdr.enable");
+        _autoHdr.AutoSize = true;
+        _autoHdr.Margin = new Padding(0, 2, 0, 2);
+        _autoHdr.CheckedChanged += (_, _) => OnAutoHdrToggled();
+        CardLayout.AddWide(autoHdrCard, _autoHdr);
+
+        string hintText = Loc.T("entry.autoHdr.hint");
+        // Ist Auto-HDR global aus (wie bei aktivem "AutoHDREnable=0"), klarstellen,
+        // dass die Per-App-Einstellung das für dieses Programm übersteuert.
+        if (AutoHdrController.IsGlobalAutoHdrEnabled() == false)
+            hintText += "\n" + Loc.T("entry.autoHdr.globalOff");
+        var autoHdrHint = new Label
+        {
+            Text = hintText,
+            AutoSize = true,
+            Tag = "muted",
+            MaximumSize = new Size(400, 0),
+            Margin = new Padding(24, 0, 0, 2)
+        };
+        CardLayout.AddWide(autoHdrCard, autoHdrHint);
+
+        CardLayout.AddRootRow(root, CardLayout.WrapInCard(autoHdrCard));
+
         // ---- Fußleiste ----
         var ok = new ModernButton { Text = Loc.T("common.ok"), Primary = true, DialogResult = DialogResult.OK };
         var cancel = new ModernButton { Text = Loc.T("common.cancel"), DialogResult = DialogResult.Cancel };
@@ -186,6 +216,28 @@ public sealed class EntryEditForm : Form
             if (e.TargetMonitorIds.Contains(mi.Monitor.DevicePath))
                 _monitors.SetItemChecked(i, true);
         }
+
+        _autoHdr.Checked = e.EnableAutoHdr;
+        _loading = false;
+    }
+
+    /// <summary>
+    /// Beim Setzen des Auto-HDR-Hakens: prüfen, ob NVIDIA RTX HDR für dieses
+    /// Spiel oder global aktiv ist - beide zusammen führen zu doppeltem
+    /// Tone-Mapping, davor wird gewarnt.
+    /// </summary>
+    private void OnAutoHdrToggled()
+    {
+        if (_loading || !_autoHdr.Checked) return;
+
+        string source = !string.IsNullOrWhiteSpace(_path.Text) ? _path.Text : _processName.Text;
+        string exeName = string.IsNullOrWhiteSpace(source) ? "" : Path.GetFileName(source.Trim());
+
+        if (RtxHdrDetector.IsRtxHdrEnabled(exeName) == true)
+        {
+            MessageBox.Show(this, Loc.T("entry.autoHdr.rtxMsg"),
+                Loc.T("entry.autoHdr.rtxTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
     }
 
     private bool ValidateInput()
@@ -194,6 +246,13 @@ public sealed class EntryEditForm : Form
         {
             MessageBox.Show(this, Loc.T("entry.incompleteMsg"),
                 Loc.T("entry.incompleteTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+        // Windows speichert Auto-HDR pro Exe-Pfad - ohne Pfad kein Auto-HDR.
+        if (_autoHdr.Checked && string.IsNullOrWhiteSpace(_path.Text))
+        {
+            MessageBox.Show(this, Loc.T("entry.autoHdr.needPathMsg"),
+                Loc.T("entry.autoHdr.needPathTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return false;
         }
         return true;
@@ -222,7 +281,8 @@ public sealed class EntryEditForm : Form
                 _ => MatchMode.NameOrPath
             },
             Enabled = _enabled.Checked,
-            TargetMonitorIds = targets
+            TargetMonitorIds = targets,
+            EnableAutoHdr = _autoHdr.Checked
         };
     }
 

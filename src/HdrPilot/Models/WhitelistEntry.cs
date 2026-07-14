@@ -35,6 +35,13 @@ public sealed class WhitelistEntry
     public List<string> TargetMonitorIds { get; set; } = new();
 
     /// <summary>
+    /// Windows Auto-HDR für dieses Programm aktivieren (Per-App-Grafikeinstellung).
+    /// Benötigt <see cref="FullPath"/>, da Windows die Einstellung pro Exe-Pfad speichert.
+    /// Standard: aus.
+    /// </summary>
+    public bool EnableAutoHdr { get; set; } = false;
+
+    /// <summary>
     /// Prüft, ob ein laufender Prozess auf diesen Eintrag passt.
     /// </summary>
     /// <param name="processName">Prozessname inkl. ".exe" (z. B. aus WMI).</param>
