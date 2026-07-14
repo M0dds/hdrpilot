@@ -1,6 +1,6 @@
-﻿using HdrAutoSwitch.Models;
+﻿using HdrPilot.Models;
 
-namespace HdrAutoSwitch.UI;
+namespace HdrPilot.UI;
 
 /// <summary>
 /// Einstellungsdialog im Windows-11-Stil: Sektionen als Cards

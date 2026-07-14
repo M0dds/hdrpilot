@@ -1,4 +1,4 @@
-namespace HdrAutoSwitch.Models;
+﻿namespace HdrPilot.Models;
 
 /// <summary>
 /// Ein vom System erkannter, aktiver Monitor mit seinen HDR-Eigenschaften.

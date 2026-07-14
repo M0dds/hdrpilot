@@ -1,4 +1,4 @@
-{
+﻿{
   "version": "2.0.0",
   "tasks": [
     {
@@ -7,7 +7,7 @@
       "type": "process",
       "args": [
         "build",
-        "${workspaceFolder}/HdrAutoSwitch.sln",
+        "${workspaceFolder}/HdrPilot.sln",
         "/property:GenerateFullPaths=true",
         "/consoleloggerparameters:NoSummary"
       ],
@@ -20,7 +20,7 @@
       "type": "process",
       "args": [
         "publish",
-        "${workspaceFolder}/src/HdrAutoSwitch/HdrAutoSwitch.csproj",
+        "${workspaceFolder}/src/HdrPilot/HdrPilot.csproj",
         "-c", "Release",
         "-r", "win-x64",
         "--self-contained", "false",

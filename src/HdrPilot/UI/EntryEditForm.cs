@@ -1,6 +1,6 @@
-using HdrAutoSwitch.Models;
+﻿using HdrPilot.Models;
 
-namespace HdrAutoSwitch.UI;
+namespace HdrPilot.UI;
 
 /// <summary>
 /// Dialog zum Bearbeiten eines einzelnen Whitelist-Eintrags, im selben

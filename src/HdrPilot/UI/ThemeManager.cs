@@ -1,8 +1,8 @@
 ﻿using System.Runtime.InteropServices;
-using HdrAutoSwitch.Models;
+using HdrPilot.Models;
 using Microsoft.Win32;
 
-namespace HdrAutoSwitch.UI;
+namespace HdrPilot.UI;
 
 /// <summary>Farbpalette eines Themes.</summary>
 internal sealed record ThemePalette(

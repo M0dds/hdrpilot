@@ -1,7 +1,7 @@
-using System.Collections.Concurrent;
-using HdrAutoSwitch.Models;
+﻿using System.Collections.Concurrent;
+using HdrPilot.Models;
 
-namespace HdrAutoSwitch.Core;
+namespace HdrPilot.Core;
 
 /// <summary>
 /// Meldung über eine HDR-Umschaltung, z. B. für Tray-Benachrichtigungen.

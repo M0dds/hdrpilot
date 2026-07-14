@@ -1,7 +1,7 @@
-using System.Drawing.Drawing2D;
+﻿using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 
-namespace HdrAutoSwitch.UI;
+namespace HdrPilot.UI;
 
 /// <summary>
 /// Schriftarten im Windows-11-Stil: Segoe UI Variable (auf Win11 vorinstalliert),

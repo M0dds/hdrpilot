@@ -1,12 +1,12 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Win32;
-using HdrAutoSwitch.Models;
+using HdrPilot.Models;
 
-namespace HdrAutoSwitch.Core;
+namespace HdrPilot.Core;
 
 /// <summary>
 /// Lädt und speichert die <see cref="AppConfig"/> als JSON in
-/// %AppData%\HdrAutoSwitch\config.json und verwaltet den Windows-Autostart.
+/// %AppData%\HdrPilot\config.json und verwaltet den Windows-Autostart.
 /// </summary>
 public sealed class ConfigStore
 {
@@ -17,7 +17,7 @@ public sealed class ConfigStore
     };
 
     private const string RunKeyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
-    private const string RunValueName = "HdrAutoSwitch";
+    private const string RunValueName = "HdrPilot";
 
     public string ConfigDirectory { get; }
     public string ConfigPath { get; }
@@ -26,7 +26,7 @@ public sealed class ConfigStore
     {
         ConfigDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "HdrAutoSwitch");
+            "HdrPilot");
         ConfigPath = Path.Combine(ConfigDirectory, "config.json");
     }
 

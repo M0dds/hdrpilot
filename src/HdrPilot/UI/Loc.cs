@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
 
-namespace HdrAutoSwitch.UI;
+namespace HdrPilot.UI;
 
 /// <summary>
 /// Schlanke Code-basierte Lokalisierung (DE/EN/FR/ES).
@@ -66,7 +66,7 @@ internal static class Loc
         ["notify.off"] = "HDR disabled",
         ["notify.allEnded"] = "All programs closed",
 
-        ["wl.title"] = "HDR AutoSwitch – Whitelist",
+        ["wl.title"] = "HDR Pilot – Whitelist",
         ["wl.heading"] = "Whitelist",
         ["wl.hint"] = "Programs that automatically enable HDR. HDR is turned off once all of them have closed.",
         ["wl.col.name"] = "Name",
@@ -156,7 +156,7 @@ internal static class Loc
         ["notify.off"] = "HDR deaktiviert",
         ["notify.allEnded"] = "Alle Programme beendet",
 
-        ["wl.title"] = "HDR AutoSwitch – Whitelist",
+        ["wl.title"] = "HDR Pilot – Whitelist",
         ["wl.heading"] = "Whitelist",
         ["wl.hint"] = "Programme, die HDR automatisch aktivieren. HDR wird ausgeschaltet, sobald alle beendet sind.",
         ["wl.col.name"] = "Name",
@@ -246,7 +246,7 @@ internal static class Loc
         ["notify.off"] = "HDR désactivé",
         ["notify.allEnded"] = "Tous les programmes sont fermés",
 
-        ["wl.title"] = "HDR AutoSwitch – Liste blanche",
+        ["wl.title"] = "HDR Pilot – Liste blanche",
         ["wl.heading"] = "Liste blanche",
         ["wl.hint"] = "Programmes qui activent automatiquement le HDR. Le HDR est désactivé dès qu'ils sont tous fermés.",
         ["wl.col.name"] = "Nom",
@@ -336,7 +336,7 @@ internal static class Loc
         ["notify.off"] = "HDR desactivado",
         ["notify.allEnded"] = "Todos los programas cerrados",
 
-        ["wl.title"] = "HDR AutoSwitch – Lista blanca",
+        ["wl.title"] = "HDR Pilot – Lista blanca",
         ["wl.heading"] = "Lista blanca",
         ["wl.hint"] = "Programas que activan HDR automáticamente. HDR se desactiva cuando todos se hayan cerrado.",
         ["wl.col.name"] = "Nombre",

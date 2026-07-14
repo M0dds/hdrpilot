@@ -1,7 +1,7 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Management;
 
-namespace HdrAutoSwitch.Core;
+namespace HdrPilot.Core;
 
 /// <summary>
 /// Ereignis über einen gestarteten oder beendeten Prozess.

@@ -1,4 +1,4 @@
-namespace HdrAutoSwitch.Models;
+﻿namespace HdrPilot.Models;
 
 /// <summary>
 /// Legt fest, wie ein laufender Prozess mit einem Whitelist-Eintrag abgeglichen wird.

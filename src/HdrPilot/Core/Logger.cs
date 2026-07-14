@@ -1,7 +1,7 @@
-namespace HdrAutoSwitch.Core;
+﻿namespace HdrPilot.Core;
 
 /// <summary>
-/// Einfaches, robustes Datei-Logging nach %AppData%\HdrAutoSwitch\log.txt.
+/// Einfaches, robustes Datei-Logging nach %AppData%\HdrPilot\log.txt.
 /// Threadsicher; rotiert bei ~1 MB nach log.old.txt. Logging-Fehler werden
 /// verschluckt, damit sie nie die eigentliche Funktion stören.
 /// </summary>
@@ -11,7 +11,7 @@ public static class Logger
 
     public static string LogPath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "HdrAutoSwitch", "log.txt");
+        "HdrPilot", "log.txt");
 
     private const long MaxSizeBytes = 1_000_000;
 

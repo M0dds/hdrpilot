@@ -1,8 +1,8 @@
-using System.Runtime.InteropServices;
-using HdrAutoSwitch.Models;
-using static HdrAutoSwitch.Native.DisplayConfig;
+﻿using System.Runtime.InteropServices;
+using HdrPilot.Models;
+using static HdrPilot.Native.DisplayConfig;
 
-namespace HdrAutoSwitch.Core;
+namespace HdrPilot.Core;
 
 /// <summary>
 /// Zentrale Abstraktion über die native DisplayConfig-API.

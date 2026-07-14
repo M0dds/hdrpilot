@@ -1,6 +1,6 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
-namespace HdrAutoSwitch.Native;
+namespace HdrPilot.Native;
 
 /// <summary>
 /// Rohe P/Invoke-Signaturen und Strukturen für die Windows DisplayConfig-API (user32.dll).
@@ -9,7 +9,7 @@ namespace HdrAutoSwitch.Native;
 /// Es gibt zwei Wege, HDR ("Advanced Color") zu schalten:
 ///   1) Legacy (Win11 vor 24H2): DISPLAYCONFIG_SET_ADVANCED_COLOR_STATE (10)
 ///   2) Modern (Win11 24H2+):    DISPLAYCONFIG_SET_HDR_STATE (16) + GET_ADVANCED_COLOR_INFO_2 (15)
-/// <see cref="HdrAutoSwitch.Core.HdrController"/> wählt zur Laufzeit den passenden Weg.
+/// <see cref="HdrPilot.Core.HdrController"/> wählt zur Laufzeit den passenden Weg.
 /// </summary>
 internal static class DisplayConfig
 {

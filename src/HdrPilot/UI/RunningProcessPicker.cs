@@ -1,6 +1,6 @@
-using HdrAutoSwitch.Core;
+﻿using HdrPilot.Core;
 
-namespace HdrAutoSwitch.UI;
+namespace HdrPilot.UI;
 
 /// <summary>
 /// Dialog, der aktuell laufende Prozesse listet, damit der Nutzer ein

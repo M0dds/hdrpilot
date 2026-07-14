@@ -1,6 +1,6 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
-namespace HdrAutoSwitch.Models;
+namespace HdrPilot.Models;
 
 /// <summary>
 /// Ein einzelner Eintrag der Whitelist: welches Programm HDR auslöst und auf welchen Monitoren.

@@ -1,7 +1,7 @@
-namespace HdrAutoSwitch.Models;
+﻿namespace HdrPilot.Models;
 
 /// <summary>
-/// Gesamte persistierte Konfiguration. Wird als JSON in %AppData%\HdrAutoSwitch\config.json abgelegt.
+/// Gesamte persistierte Konfiguration. Wird als JSON in %AppData%\HdrPilot\config.json abgelegt.
 /// </summary>
 public sealed class AppConfig
 {

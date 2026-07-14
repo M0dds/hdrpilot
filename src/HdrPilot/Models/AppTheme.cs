@@ -1,4 +1,4 @@
-namespace HdrAutoSwitch.Models;
+﻿namespace HdrPilot.Models;
 
 /// <summary>Farbschema der Oberfläche.</summary>
 public enum AppTheme

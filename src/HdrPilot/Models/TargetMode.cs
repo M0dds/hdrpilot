@@ -1,4 +1,4 @@
-namespace HdrAutoSwitch.Models;
+﻿namespace HdrPilot.Models;
 
 /// <summary>
 /// Legt fest, auf welchen Monitoren HDR geschaltet wird, wenn ein Whitelist-Eintrag

@@ -1,7 +1,7 @@
-using HdrAutoSwitch.Core;
-using HdrAutoSwitch.Models;
+﻿using HdrPilot.Core;
+using HdrPilot.Models;
 
-namespace HdrAutoSwitch.UI;
+namespace HdrPilot.UI;
 
 /// <summary>
 /// ApplicationContext ohne Hauptfenster: Die App lebt im Infobereich (Tray).
@@ -42,7 +42,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         _tray = new NotifyIcon
         {
             Icon = TrayIconFactory.Create(),
-            Text = "HDR AutoSwitch",
+            Text = "HDR Pilot",
             Visible = true,
             ContextMenuStrip = BuildMenu()
         };
@@ -64,7 +64,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         catch (Exception ex)
         {
             Logger.Error("Prozessüberwachung konnte nicht gestartet werden.", ex);
-            _tray.ShowBalloonTip(5000, "HDR AutoSwitch",
+            _tray.ShowBalloonTip(5000, "HDR Pilot",
                 Loc.T("tray.watcherFailed") + ex.Message, ToolTipIcon.Error);
         }
 

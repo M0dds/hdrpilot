@@ -1,7 +1,7 @@
-using HdrAutoSwitch.Core;
-using HdrAutoSwitch.Models;
+﻿using HdrPilot.Core;
+using HdrPilot.Models;
 
-namespace HdrAutoSwitch.UI;
+namespace HdrPilot.UI;
 
 /// <summary>
 /// Hauptfenster: Verwaltung der Whitelist im Windows-11-Stil.
