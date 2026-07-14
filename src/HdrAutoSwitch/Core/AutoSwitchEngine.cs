@@ -5,8 +5,10 @@ namespace HdrAutoSwitch.Core;
 
 /// <summary>
 /// Meldung über eine HDR-Umschaltung, z. B. für Tray-Benachrichtigungen.
+/// TriggerName ist der auslösende Whitelist-Eintrag (null beim Ausschalten);
+/// den anzeigbaren Text baut die UI-Schicht in der jeweiligen Sprache.
 /// </summary>
-public sealed record HdrSwitchNotice(bool Enabled, string Reason, IReadOnlyList<string> MonitorNames);
+public sealed record HdrSwitchNotice(bool Enabled, string? TriggerName, IReadOnlyList<string> MonitorNames);
 
 /// <summary>
 /// Kernlogik: verbindet <see cref="ProcessWatcher"/>, Whitelist und <see cref="HdrController"/>.
@@ -176,7 +178,7 @@ public sealed class AutoSwitchEngine : IDisposable
         if (changed.Count > 0)
         {
             Switched?.Invoke(new HdrSwitchNotice(
-                false, "Alle Programme beendet", changed.Select(m => m.FriendlyName).ToList()));
+                false, null, changed.Select(m => m.FriendlyName).ToList()));
         }
     }
 

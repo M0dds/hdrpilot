@@ -1,4 +1,3 @@
-using System.Drawing;
 using HdrAutoSwitch.Core;
 using HdrAutoSwitch.Models;
 
@@ -6,7 +5,7 @@ namespace HdrAutoSwitch.UI;
 
 /// <summary>
 /// ApplicationContext ohne Hauptfenster: Die App lebt im Infobereich (Tray).
-/// Verdrahtet Konfiguration, Prozessüberwachung und HDR-Steuerung.
+/// Verdrahtet Konfiguration, Prozessüberwachung, HDR-Steuerung, Theme und Sprache.
 /// </summary>
 public sealed class TrayApplicationContext : ApplicationContext
 {
@@ -17,8 +16,17 @@ public sealed class TrayApplicationContext : ApplicationContext
     private AppConfig _config;
 
     private readonly NotifyIcon _tray;
-    private WhitelistForm? _openForm;
+    private WhitelistForm? _whitelistForm;
+    private SettingsForm? _settingsForm;
     private readonly SynchronizationContext _ui;
+
+    // Menüeinträge als Felder, damit Texte bei Sprachwechsel aktualisiert werden können.
+    private readonly ToolStripMenuItem _statusItem = new() { Enabled = false };
+    private readonly ToolStripMenuItem _whitelistItem = new();
+    private readonly ToolStripMenuItem _settingsItem = new();
+    private readonly ToolStripMenuItem _forceOffItem = new();
+    private readonly ToolStripMenuItem _autostartItem = new() { CheckOnClick = true };
+    private readonly ToolStripMenuItem _exitItem = new();
 
     public TrayApplicationContext(bool startHidden)
     {
@@ -26,6 +34,9 @@ public sealed class TrayApplicationContext : ApplicationContext
         _ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
 
         _config = _store.Load();
+        Loc.Apply(_config.Language);
+        ThemeManager.Mode = _config.Theme;
+
         _engine = new AutoSwitchEngine(_hdr, _watcher, _config);
 
         _tray = new NotifyIcon
@@ -49,8 +60,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             Logger.Error("Prozessüberwachung konnte nicht gestartet werden.", ex);
             _tray.ShowBalloonTip(5000, "HDR AutoSwitch",
-                "Prozessüberwachung konnte nicht gestartet werden: " + ex.Message,
-                ToolTipIcon.Error);
+                Loc.T("tray.watcherFailed") + ex.Message, ToolTipIcon.Error);
         }
 
         if (!_config.Whitelist.Any() && !startHidden)
@@ -59,20 +69,14 @@ public sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
-    private readonly ToolStripMenuItem _statusItem = new("HDR-Status wird ermittelt…") { Enabled = false };
-    private readonly ToolStripMenuItem _autostartItem = new("Bei Windows-Start starten") { CheckOnClick = true };
-
     private ContextMenuStrip BuildMenu()
     {
         var menu = new ContextMenuStrip();
 
-        menu.Items.Add(_statusItem);
-        menu.Items.Add(new ToolStripSeparator());
-
-        menu.Items.Add("Whitelist verwalten…", null, (_, _) => OpenWhitelist());
-        menu.Items.Add("HDR jetzt aus (alle Monitore)", null, (_, _) => ForceAllOff());
-
-        _autostartItem.Checked = _config.StartWithWindows;
+        _whitelistItem.Click += (_, _) => OpenWhitelist();
+        _settingsItem.Click += (_, _) => OpenSettings();
+        _forceOffItem.Click += (_, _) => ForceAllOff();
+        _exitItem.Click += (_, _) => ExitApp();
         _autostartItem.CheckedChanged += (_, _) =>
         {
             if (_config.StartWithWindows == _autostartItem.Checked) return;
@@ -80,10 +84,15 @@ public sealed class TrayApplicationContext : ApplicationContext
             _store.Save(_config); // schreibt config.json und den HKCU-Run-Key
             Logger.Info("Autostart " + (_config.StartWithWindows ? "aktiviert." : "deaktiviert."));
         };
-        menu.Items.Add(_autostartItem);
 
+        menu.Items.Add(_statusItem);
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Beenden", null, (_, _) => ExitApp());
+        menu.Items.Add(_whitelistItem);
+        menu.Items.Add(_settingsItem);
+        menu.Items.Add(_forceOffItem);
+        menu.Items.Add(_autostartItem);
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(_exitItem);
 
         // Beim Öffnen des Menüs den aktuellen HDR-Status live abfragen.
         menu.Opening += (_, _) =>
@@ -92,7 +101,21 @@ public sealed class TrayApplicationContext : ApplicationContext
             _autostartItem.Checked = _config.StartWithWindows;
         };
 
+        RefreshMenuTexts();
+        ThemeManager.ApplyToMenu(menu);
         return menu;
+    }
+
+    /// <summary>Setzt alle Menütexte in der aktiven Sprache (initial und nach Sprachwechsel).</summary>
+    private void RefreshMenuTexts()
+    {
+        _statusItem.Text = Loc.T("tray.status.detecting");
+        _whitelistItem.Text = Loc.T("tray.menu.whitelist");
+        _settingsItem.Text = Loc.T("tray.menu.settings");
+        _forceOffItem.Text = Loc.T("tray.menu.forceOff");
+        _autostartItem.Text = Loc.T("tray.menu.autostart");
+        _exitItem.Text = Loc.T("tray.menu.exit");
+        _autostartItem.Checked = _config.StartWithWindows;
     }
 
     private void UpdateStatusItem()
@@ -101,35 +124,81 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             var hdrMonitors = _hdr.GetMonitors().Where(m => m.HdrSupported).ToList();
             _statusItem.Text = hdrMonitors.Count == 0
-                ? "HDR: kein HDR-fähiger Monitor"
+                ? Loc.T("tray.status.none")
                 : "HDR: " + string.Join(" | ", hdrMonitors.Select(m =>
-                    $"{m.FriendlyName}{(m.IsPrimary ? " (primär)" : "")}: {(m.HdrEnabled ? "Ein" : "Aus")}"));
+                    $"{m.FriendlyName}{(m.IsPrimary ? $" ({Loc.T("tray.primaryTag")})" : "")}: " +
+                    (m.HdrEnabled ? Loc.T("common.on") : Loc.T("common.off"))));
         }
         catch (Exception ex)
         {
-            _statusItem.Text = "HDR-Status nicht abrufbar";
+            _statusItem.Text = Loc.T("tray.status.unavailable");
             Logger.Error("HDR-Statusabfrage für das Tray-Menü fehlgeschlagen.", ex);
         }
     }
 
     private void OpenWhitelist()
     {
-        if (_openForm is { IsDisposed: false })
+        if (_whitelistForm is { IsDisposed: false })
         {
-            _openForm.Activate();
+            _whitelistForm.Activate();
             return;
         }
-        _openForm = new WhitelistForm(_config, _hdr);
-        _openForm.Saved += cfg =>
+        _whitelistForm = new WhitelistForm(_config, _hdr);
+        _whitelistForm.Saved += cfg =>
         {
-            _config = cfg;
+            // Nur die Whitelist übernehmen - Einstellungen könnten sich
+            // parallel über den Einstellungsdialog geändert haben.
+            _config.Whitelist = cfg.Whitelist;
             _store.Save(_config);
             _engine.UpdateConfig(_config);
             // Nach dem Speichern erneut laufende Prozesse prüfen.
             _engine.ScanExisting();
         };
-        _openForm.Show();
-        _openForm.BringToFront();
+        _whitelistForm.Show();
+        _whitelistForm.BringToFront();
+    }
+
+    private void OpenSettings()
+    {
+        if (_settingsForm is { IsDisposed: false })
+        {
+            _settingsForm.Activate();
+            return;
+        }
+        // Kopie übergeben, damit Abbrechen keine Spuren hinterlässt.
+        var clone = System.Text.Json.JsonSerializer.Deserialize<AppConfig>(
+            System.Text.Json.JsonSerializer.Serialize(_config)) ?? new AppConfig();
+
+        _settingsForm = new SettingsForm(clone);
+        _settingsForm.Saved += cfg =>
+        {
+            // Nur die Einstellungen übernehmen - die Whitelist könnte sich
+            // parallel über das Whitelist-Fenster geändert haben.
+            _config.StartWithWindows = cfg.StartWithWindows;
+            _config.ShowNotifications = cfg.ShowNotifications;
+            _config.RestorePreviousState = cfg.RestorePreviousState;
+            _config.TargetMode = cfg.TargetMode;
+            _config.OnDebounceMs = cfg.OnDebounceMs;
+            _config.OffDebounceMs = cfg.OffDebounceMs;
+            _config.Theme = cfg.Theme;
+            _config.Language = cfg.Language;
+            _store.Save(_config);
+            _engine.UpdateConfig(_config);
+
+            // Sprache/Theme sofort anwenden.
+            Loc.Apply(_config.Language);
+            ThemeManager.Mode = _config.Theme;
+            RefreshMenuTexts();
+            if (_tray.ContextMenuStrip is { } menu)
+                ThemeManager.ApplyToMenu(menu);
+
+            // Offenes Whitelist-Fenster schließen, damit es beim nächsten
+            // Öffnen in neuer Sprache/neuem Theme erscheint.
+            if (_whitelistForm is { IsDisposed: false })
+                _whitelistForm.Close();
+        };
+        _settingsForm.Show();
+        _settingsForm.BringToFront();
     }
 
     private void ForceAllOff()
@@ -145,8 +214,9 @@ public sealed class TrayApplicationContext : ApplicationContext
     {
         if (!_config.ShowNotifications) return;
         string monitors = string.Join(", ", notice.MonitorNames);
-        string title = notice.Enabled ? "HDR aktiviert" : "HDR deaktiviert";
-        string body = $"{notice.Reason} → {monitors}";
+        string title = notice.Enabled ? Loc.T("notify.on") : Loc.T("notify.off");
+        string reason = notice.TriggerName ?? Loc.T("notify.allEnded");
+        string body = $"{reason} → {monitors}";
         // Das Event kommt von einem Timer-/WMI-Thread. NotifyIcon ist an den
         // UI-Thread gebunden, daher zurück auf diesen marshallen.
         _ui.Post(_ => _tray.ShowBalloonTip(2500, title, body, ToolTipIcon.Info), null);
@@ -154,7 +224,7 @@ public sealed class TrayApplicationContext : ApplicationContext
 
     private void ExitApp()
     {
-        _engine.ShutdownCleanup(); // HDR sauber ausschalten
+        _engine.ShutdownCleanup(); // vorherigen HDR-Zustand wiederherstellen
         _tray.Visible = false;
         _watcher.Dispose();
         _engine.Dispose();

@@ -24,6 +24,12 @@ Xbox Game Bar (anders als die Tastenkombination `Win + Alt + B`).
   Ohne Adminrechte (`Win32_ProcessStartTrace` erfordert sie) wechselt die App
   automatisch auf `__InstanceCreation/DeletionEvent (WITHIN 2)`.
 - **Autostart mit Windows** optional (HKCU Run-Key, Toggle direkt im Tray-Menü).
+- **Hell- und Dunkelmodus** (folgt standardmäßig der Windows-Einstellung,
+  umschaltbar in den Einstellungen) inkl. dunkler Titelleiste.
+- **Mehrsprachig**: Deutsch, Englisch, Französisch, Spanisch – Standard ist die
+  Windows-Anzeigesprache, umstellbar in den Einstellungen.
+- **Einstellungsdialog** im Tray-Menü: Sprache, Design, Autostart,
+  Benachrichtigungen, Zustands-Wiederherstellung, Ziel-Monitore, Debounce-Zeiten.
 - **Logging** nach `%AppData%\HdrAutoSwitch\log.txt` (rotiert bei ~1 MB).
 
 ## Voraussetzungen
@@ -68,6 +74,8 @@ dotnet publish src/HdrAutoSwitch/HdrAutoSwitch.csproj -c Release -r win-x64 --se
    **Aus laufenden…** (aus der Liste offener Programme).
 4. Pro Eintrag Erkennungsmodus und Ziel-Monitore festlegen.
 5. **Speichern & Anwenden**. Ab jetzt schaltet HDR automatisch.
+6. Sprache, Design (Hell/Dunkel/System) und Verhalten unter
+   **Einstellungen…** im Tray-Menü anpassen.
 
 Start im Hintergrund (für Autostart): `HdrAutoSwitch.exe --background`
 

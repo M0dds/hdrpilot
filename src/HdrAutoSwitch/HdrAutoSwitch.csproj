@@ -13,7 +13,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>HdrAutoSwitch</AssemblyName>
     <RootNamespace>HdrAutoSwitch</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Product>HDR AutoSwitch</Product>
     <!-- Single-file-freundlich; kein Trimming, damit WMI/Reflection sicher funktionieren.
          Publish-Befehl: siehe README (dotnet publish, Release, win-x64, self-contained,

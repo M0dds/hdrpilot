@@ -40,4 +40,12 @@ public sealed class AppConfig
 
     /// <summary>Ballon-/Tray-Benachrichtigung anzeigen, wenn HDR umgeschaltet wird.</summary>
     public bool ShowNotifications { get; set; } = true;
+
+    /// <summary>Farbschema der Oberfläche: System (Standard), Light oder Dark.</summary>
+    public AppTheme Theme { get; set; } = AppTheme.System;
+
+    /// <summary>
+    /// UI-Sprache: "system" (folgt Windows), "de", "en", "fr" oder "es".
+    /// </summary>
+    public string Language { get; set; } = "system";
 }

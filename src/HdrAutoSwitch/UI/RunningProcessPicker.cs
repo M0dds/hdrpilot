@@ -1,11 +1,10 @@
-using System.Diagnostics;
 using HdrAutoSwitch.Core;
 
 namespace HdrAutoSwitch.UI;
 
 /// <summary>
-/// Dialog, der aktuell laufende Prozesse mit Fenster/Namen listet,
-/// damit der Nutzer ein Programm bequem auswählen kann.
+/// Dialog, der aktuell laufende Prozesse listet, damit der Nutzer ein
+/// Programm bequem auswählen kann.
 /// </summary>
 public sealed class RunningProcessPicker : Form
 {
@@ -17,25 +16,25 @@ public sealed class RunningProcessPicker : Form
 
     public RunningProcessPicker()
     {
-        Text = "Laufendes Programm auswählen";
-        Width = 560;
-        Height = 480;
+        Text = Loc.T("picker.title");
+        Width = 580;
+        Height = 500;
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9f);
+        Font = new Font("Segoe UI", 9.5f);
 
         BuildLayout();
         LoadProcesses();
+        ThemeManager.Apply(this);
     }
 
     private void BuildLayout()
     {
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(12) };
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Padding = new Padding(16) };
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-        var filterPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-        filterPanel.Controls.Add(new Label { Text = "Filter:", AutoSize = true, Margin = new Padding(0, 6, 6, 0) });
+        var filterPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 0, 0, 8) };
+        filterPanel.Controls.Add(new Label { Text = Loc.T("picker.filter"), AutoSize = true, Margin = new Padding(0, 6, 6, 0) });
         _filter.Width = 300;
         _filter.TextChanged += (_, _) => ApplyFilter();
         filterPanel.Controls.Add(_filter);
@@ -45,31 +44,37 @@ public sealed class RunningProcessPicker : Form
         _list.View = View.Details;
         _list.FullRowSelect = true;
         _list.MultiSelect = false;
-        _list.Columns.Add("Prozess", 180);
-        _list.Columns.Add("Pfad", 320);
+        _list.Columns.Add(Loc.T("picker.col.process"), 180);
+        _list.Columns.Add(Loc.T("picker.col.path"), 330);
         _list.DoubleClick += (_, _) => Accept();
         root.Controls.Add(_list, 0, 1);
 
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, AutoSize = true };
-        var ok = new Button { Text = "Auswählen", Width = 100, DialogResult = DialogResult.OK };
-        var cancel = new Button { Text = "Abbrechen", Width = 100, DialogResult = DialogResult.Cancel };
+        var buttons = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Bottom,
+            FlowDirection = FlowDirection.RightToLeft,
+            Height = 52,
+            Padding = new Padding(16, 10, 16, 10)
+        };
+        var ok = new Button { Text = Loc.T("picker.select"), Width = 120, Height = 32, Tag = "primary", DialogResult = DialogResult.OK };
+        var cancel = new Button { Text = Loc.T("common.cancel"), Width = 110, Height = 32, DialogResult = DialogResult.Cancel };
         ok.Click += (_, _) => Accept();
         buttons.Controls.Add(ok);
         buttons.Controls.Add(cancel);
-        root.Controls.Add(buttons, 0, 2);
 
         Controls.Add(root);
+        Controls.Add(buttons);
         AcceptButton = ok;
         CancelButton = cancel;
     }
 
     private void LoadProcesses()
     {
-        // Nur Prozesse mit sichtbarem Fenster oder eindeutigem Namen; nach Name gruppiert.
+        // Nach Name dedupliziert und sortiert.
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         _all = ProcessWatcher.EnumerateRunning()
             .Where(p => !string.IsNullOrEmpty(p.ProcessName))
-            .Where(p => seen.Add(p.ProcessName)) // Duplikate nach Name entfernen
+            .Where(p => seen.Add(p.ProcessName))
             .OrderBy(p => p.ProcessName, StringComparer.OrdinalIgnoreCase)
             .ToList();
         ApplyFilter();
@@ -87,7 +92,7 @@ public sealed class RunningProcessPicker : Form
                 !(p.FullPath?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false))
                 continue;
 
-            _list.Items.Add(new ListViewItem(new[] { p.ProcessName, p.FullPath ?? "(Pfad nicht lesbar)" }) { Tag = p });
+            _list.Items.Add(new ListViewItem(new[] { p.ProcessName, p.FullPath ?? Loc.T("picker.noPath") }) { Tag = p });
         }
         _list.EndUpdate();
     }

@@ -17,27 +17,26 @@ public sealed class EntryEditForm : Form
     private readonly RadioButton _allMonitors = new();
     private readonly RadioButton _selectedMonitors = new();
     private readonly List<MonitorInfo> _monitorList;
-    private readonly WhitelistEntry _original;
 
     public WhitelistEntry Result { get; private set; }
 
     public EntryEditForm(WhitelistEntry entry, List<MonitorInfo> monitors)
     {
-        _original = entry;
         _monitorList = monitors;
         Result = entry;
 
-        Text = "Eintrag bearbeiten";
-        Width = 480;
-        Height = 500;
+        Text = Loc.T("entry.title");
+        Width = 500;
+        Height = 520;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9f);
+        Font = new Font("Segoe UI", 9.5f);
 
         BuildLayout();
         LoadFromEntry(entry);
+        ThemeManager.Apply(this);
     }
 
     private void BuildLayout()
@@ -46,24 +45,24 @@ public sealed class EntryEditForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
-            Padding = new Padding(12),
+            Padding = new Padding(16),
             AutoSize = false
         };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-        AddRow(root, "Anzeigename:", _name);
-        AddRow(root, "Prozessname:", _processName);
+        AddRow(root, Loc.T("entry.displayName"), _name);
+        AddRow(root, Loc.T("entry.processName"), _processName);
 
         // Pfad mit Durchsuchen-Button
-        var pathPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Height = 28, Margin = new Padding(0, 3, 0, 3) };
+        var pathPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Height = 30, Margin = new Padding(0, 3, 0, 3) };
         pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 32));
+        pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 34));
         _path.Dock = DockStyle.Fill;
         var browse = new Button { Text = "…", Dock = DockStyle.Fill };
         browse.Click += (_, _) =>
         {
-            using var dlg = new OpenFileDialog { Filter = "Programme (*.exe)|*.exe|Alle Dateien (*.*)|*.*" };
+            using var dlg = new OpenFileDialog { Title = Loc.T("dlg.pickExe"), Filter = Loc.T("dlg.exeFilter") };
             if (dlg.ShowDialog(this) == DialogResult.OK)
             {
                 _path.Text = dlg.FileName;
@@ -73,32 +72,32 @@ public sealed class EntryEditForm : Form
         };
         pathPanel.Controls.Add(_path, 0, 0);
         pathPanel.Controls.Add(browse, 1, 0);
-        AddLabel(root, "Pfad zur .exe:");
+        AddLabel(root, Loc.T("entry.path"));
         root.Controls.Add(pathPanel, 1, root.RowCount - 1);
 
         // Erkennungsmodus
         _mode.DropDownStyle = ComboBoxStyle.DropDownList;
         _mode.Items.AddRange(new object[]
         {
-            "Prozessname",
-            "Voller Pfad",
-            "Name oder Pfad (empfohlen)"
+            Loc.T("entry.mode.name"),
+            Loc.T("entry.mode.path"),
+            Loc.T("entry.mode.namePath")
         });
         _mode.Dock = DockStyle.Fill;
         _mode.Margin = new Padding(0, 3, 0, 3);
-        AddLabel(root, "Erkennung:");
+        AddLabel(root, Loc.T("entry.match"));
         root.Controls.Add(_mode, 1, root.RowCount - 1);
 
-        _enabled.Text = "Eintrag aktiv";
+        _enabled.Text = Loc.T("entry.active");
         _enabled.AutoSize = true;
         AddLabel(root, "");
         root.Controls.Add(_enabled, 1, root.RowCount - 1);
 
         // Monitor-Ziel
-        _allMonitors.Text = "Alle HDR-fähigen Monitore";
+        _allMonitors.Text = Loc.T("entry.allHdr");
         _allMonitors.AutoSize = true;
         _allMonitors.CheckedChanged += (_, _) => _monitors.Enabled = _selectedMonitors.Checked;
-        _selectedMonitors.Text = "Nur ausgewählte Monitore:";
+        _selectedMonitors.Text = Loc.T("entry.selected");
         _selectedMonitors.AutoSize = true;
         _selectedMonitors.CheckedChanged += (_, _) => _monitors.Enabled = _selectedMonitors.Checked;
 
@@ -108,7 +107,7 @@ public sealed class EntryEditForm : Form
             FlowDirection = FlowDirection.TopDown,
             WrapContents = false,
             AutoSize = false,
-            Height = 150
+            Height = 160
         };
         monPanel.Controls.Add(_allMonitors);
         monPanel.Controls.Add(_selectedMonitors);
@@ -117,12 +116,12 @@ public sealed class EntryEditForm : Form
         _monitors.CheckOnClick = true;
         foreach (var m in _monitorList)
         {
-            string label = m.HdrSupported ? m.FriendlyName : $"{m.FriendlyName} (kein HDR)";
+            string label = m.HdrSupported ? m.FriendlyName : $"{m.FriendlyName} {Loc.T("entry.noHdr")}";
             _monitors.Items.Add(new MonitorItem(m, label));
         }
         monPanel.Controls.Add(_monitors);
 
-        AddLabel(root, "HDR schalten auf:");
+        AddLabel(root, Loc.T("entry.switchOn"));
         root.Controls.Add(monPanel, 1, root.RowCount - 1);
 
         // OK / Abbrechen
@@ -130,12 +129,12 @@ public sealed class EntryEditForm : Form
         {
             Dock = DockStyle.Bottom,
             FlowDirection = FlowDirection.RightToLeft,
-            Height = 44,
-            Padding = new Padding(12, 6, 12, 6)
+            Height = 52,
+            Padding = new Padding(16, 10, 16, 10)
         };
-        var ok = new Button { Text = "OK", Width = 90, DialogResult = DialogResult.OK };
-        var cancel = new Button { Text = "Abbrechen", Width = 90, DialogResult = DialogResult.Cancel };
-        ok.Click += (_, _) => { if (Validate2()) { SaveToResult(); } else DialogResult = DialogResult.None; };
+        var ok = new Button { Text = Loc.T("common.ok"), Width = 100, Height = 32, Tag = "primary", DialogResult = DialogResult.OK };
+        var cancel = new Button { Text = Loc.T("common.cancel"), Width = 100, Height = 32, DialogResult = DialogResult.Cancel };
+        ok.Click += (_, _) => { if (ValidateInput()) { SaveToResult(); } else DialogResult = DialogResult.None; };
         okCancel.Controls.Add(ok);
         okCancel.Controls.Add(cancel);
 
@@ -187,12 +186,12 @@ public sealed class EntryEditForm : Form
         }
     }
 
-    private bool Validate2()
+    private bool ValidateInput()
     {
         if (string.IsNullOrWhiteSpace(_processName.Text) && string.IsNullOrWhiteSpace(_path.Text))
         {
-            MessageBox.Show(this, "Bitte mindestens einen Prozessnamen oder einen Pfad angeben.",
-                "Unvollständig", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, Loc.T("entry.incompleteMsg"),
+                Loc.T("entry.incompleteTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return false;
         }
         return true;
@@ -210,7 +209,7 @@ public sealed class EntryEditForm : Form
         Result = new WhitelistEntry
         {
             DisplayName = string.IsNullOrWhiteSpace(_name.Text)
-                ? (_processName.Text.Length > 0 ? _processName.Text : "Eintrag")
+                ? (_processName.Text.Length > 0 ? _processName.Text : "?")
                 : _name.Text.Trim(),
             ProcessName = string.IsNullOrWhiteSpace(_processName.Text) ? null : _processName.Text.Trim(),
             FullPath = string.IsNullOrWhiteSpace(_path.Text) ? null : _path.Text.Trim(),
