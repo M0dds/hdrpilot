@@ -111,7 +111,7 @@ internal static class ThemeManager
         {
             switch (c)
             {
-                case ModernButton or ModernComboBox or ModernTextBox:
+                case ModernButton or ModernComboBox or ModernTextBox or ModernItemList:
                     // Zeichnen sich selbst mit Palette-Farben - nichts zu tun.
                     break;
 

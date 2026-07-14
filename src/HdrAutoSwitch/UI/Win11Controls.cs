@@ -588,6 +588,278 @@ internal sealed class ModernComboBox : Control
 }
 
 /// <summary>
+/// Vollständig selbst gezeichnete, scrollbare Auswahlliste (Primär- + Sekundärtext
+/// pro Zeile) mit schlanker Win11-Scrollbar. Ersetzt die native ListView dort,
+/// wo deren Theme-Rendering Artefakte erzeugt (z. B. Prozess-Picker).
+/// </summary>
+internal sealed class ModernItemList : Control
+{
+    public sealed class Item
+    {
+        public string Primary { get; init; } = "";
+        public string Secondary { get; init; } = "";
+        public object? Tag { get; init; }
+    }
+
+    private const int RowHeight = 30;
+    private const int ThumbWidth = 6;
+
+    private readonly List<Item> _items = new();
+    private int _selectedIndex = -1;
+    private int _hotIndex = -1;
+    private int _scrollOffset;
+    private bool _draggingThumb;
+    private bool _thumbHot;
+    private int _dragStartY;
+    private int _dragStartOffset;
+
+    /// <summary>Breite der Primärtext-Spalte; rechts davon steht der Sekundärtext.</summary>
+    public int PrimaryColumnWidth { get; set; } = 200;
+
+    public event EventHandler? SelectionChanged;
+
+    /// <summary>Doppelklick oder Enter auf einem Eintrag.</summary>
+    public event EventHandler? ItemActivated;
+
+    public Item? SelectedItem =>
+        _selectedIndex >= 0 && _selectedIndex < _items.Count ? _items[_selectedIndex] : null;
+
+    public ModernItemList()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw |
+                 ControlStyles.Selectable, true);
+        TabStop = true;
+    }
+
+    public void SetItems(IEnumerable<Item> items)
+    {
+        _items.Clear();
+        _items.AddRange(items);
+        _selectedIndex = -1;
+        _hotIndex = -1;
+        _scrollOffset = 0;
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
+        Invalidate();
+    }
+
+    private int ContentHeight => _items.Count * RowHeight;
+    private int MaxScroll => Math.Max(0, ContentHeight - ClientSize.Height);
+
+    private void SetScroll(int value)
+    {
+        int clamped = Math.Max(0, Math.Min(value, MaxScroll));
+        if (clamped == _scrollOffset) return;
+        _scrollOffset = clamped;
+        Invalidate();
+    }
+
+    private Rectangle ThumbBounds
+    {
+        get
+        {
+            if (MaxScroll <= 0) return Rectangle.Empty;
+            int trackHeight = ClientSize.Height - 4;
+            int thumbHeight = Math.Max(28, trackHeight * ClientSize.Height / Math.Max(1, ContentHeight));
+            int y = 2 + (int)((long)(trackHeight - thumbHeight) * _scrollOffset / MaxScroll);
+            return new Rectangle(ClientSize.Width - ThumbWidth - 3, y, ThumbWidth, thumbHeight);
+        }
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var p = ThemeManager.Palette;
+        var g = e.Graphics;
+        g.Clear(p.Surface);
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+        int rowAreaWidth = ClientSize.Width - (MaxScroll > 0 ? ThumbWidth + 8 : 0);
+        int first = Math.Max(0, _scrollOffset / RowHeight);
+
+        for (int i = first; i < _items.Count; i++)
+        {
+            int y = i * RowHeight - _scrollOffset;
+            if (y > ClientSize.Height) break;
+            var rowBounds = new Rectangle(0, y, rowAreaWidth, RowHeight);
+
+            bool selected = i == _selectedIndex;
+            bool hot = i == _hotIndex;
+            if (selected || hot)
+            {
+                var r = Rectangle.Inflate(rowBounds, -3, -2);
+                using var path = Win11Paint.RoundedRect(r, 4);
+                using var fill = new SolidBrush(selected ? p.Hover : Win11Paint.Blend(p.Surface, p.Hover, 0.55f));
+                g.FillPath(fill, path);
+                if (selected)
+                {
+                    using var accent = new SolidBrush(p.Accent);
+                    g.FillRectangle(accent, r.X + 2, r.Y + (r.Height - 12) / 2, 3, 12);
+                }
+            }
+
+            var item = _items[i];
+            var primaryRect = new Rectangle(12, y, Math.Min(PrimaryColumnWidth, rowAreaWidth) - 16, RowHeight);
+            TextRenderer.DrawText(g, item.Primary, Font, primaryRect, p.Text,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+
+            if (rowAreaWidth > PrimaryColumnWidth + 20)
+            {
+                var secondaryRect = new Rectangle(PrimaryColumnWidth, y, rowAreaWidth - PrimaryColumnWidth - 8, RowHeight);
+                TextRenderer.DrawText(g, item.Secondary, Font, secondaryRect, p.TextMuted,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            }
+        }
+
+        // Schlanke Scrollbar (nur Daumen, keine Spur)
+        if (MaxScroll > 0)
+        {
+            var thumb = ThumbBounds;
+            using var thumbPath = Win11Paint.RoundedRect(thumb, ThumbWidth / 2);
+            using var thumbFill = new SolidBrush(_draggingThumb || _thumbHot
+                ? p.TextMuted
+                : Win11Paint.Blend(p.Surface, p.TextMuted, 0.5f));
+            g.FillPath(thumbFill, thumbPath);
+        }
+    }
+
+    private int RowIndexAt(Point location)
+    {
+        int idx = (location.Y + _scrollOffset) / RowHeight;
+        return idx >= 0 && idx < _items.Count ? idx : -1;
+    }
+
+    protected override void OnMouseWheel(MouseEventArgs e)
+    {
+        base.OnMouseWheel(e);
+        SetScroll(_scrollOffset - e.Delta / 120 * RowHeight * 3);
+        UpdateHot(e.Location);
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (_draggingThumb)
+        {
+            int trackHeight = ClientSize.Height - 4;
+            int thumbHeight = ThumbBounds.Height;
+            if (trackHeight > thumbHeight)
+            {
+                long delta = (long)(e.Y - _dragStartY) * MaxScroll / (trackHeight - thumbHeight);
+                SetScroll(_dragStartOffset + (int)delta);
+            }
+            return;
+        }
+
+        bool overThumb = ThumbBounds.Contains(e.Location);
+        if (overThumb != _thumbHot)
+        {
+            _thumbHot = overThumb;
+            Invalidate();
+        }
+        UpdateHot(overThumb ? new Point(-1, -1) : e.Location);
+    }
+
+    private void UpdateHot(Point location)
+    {
+        int idx = location.X < 0 ? -1 : RowIndexAt(location);
+        if (idx == _hotIndex) return;
+        _hotIndex = idx;
+        Invalidate();
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        _hotIndex = -1;
+        _thumbHot = false;
+        Invalidate();
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        Focus();
+        if (ThumbBounds.Contains(e.Location))
+        {
+            _draggingThumb = true;
+            _dragStartY = e.Y;
+            _dragStartOffset = _scrollOffset;
+            Invalidate();
+            return;
+        }
+        int idx = RowIndexAt(e.Location);
+        if (idx >= 0 && idx != _selectedIndex)
+        {
+            _selectedIndex = idx;
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+            Invalidate();
+        }
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        if (_draggingThumb)
+        {
+            _draggingThumb = false;
+            Invalidate();
+        }
+    }
+
+    protected override void OnDoubleClick(EventArgs e)
+    {
+        base.OnDoubleClick(e);
+        if (_selectedIndex >= 0)
+            ItemActivated?.Invoke(this, EventArgs.Empty);
+    }
+
+    protected override bool IsInputKey(Keys keyData) =>
+        keyData is Keys.Up or Keys.Down or Keys.PageUp or Keys.PageDown or Keys.Enter || base.IsInputKey(keyData);
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        int page = Math.Max(1, ClientSize.Height / RowHeight - 1);
+        int next = e.KeyCode switch
+        {
+            Keys.Up => _selectedIndex - 1,
+            Keys.Down => _selectedIndex + 1,
+            Keys.PageUp => _selectedIndex - page,
+            Keys.PageDown => _selectedIndex + page,
+            Keys.Home => 0,
+            Keys.End => _items.Count - 1,
+            _ => int.MinValue
+        };
+        if (next != int.MinValue)
+        {
+            if (_items.Count == 0) return;
+            next = Math.Max(0, Math.Min(next, _items.Count - 1));
+            if (next != _selectedIndex)
+            {
+                _selectedIndex = next;
+                EnsureVisible(next);
+                SelectionChanged?.Invoke(this, EventArgs.Empty);
+                Invalidate();
+            }
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.Enter && _selectedIndex >= 0)
+        {
+            ItemActivated?.Invoke(this, EventArgs.Empty);
+            e.Handled = true;
+        }
+    }
+
+    private void EnsureVisible(int index)
+    {
+        int top = index * RowHeight;
+        if (top < _scrollOffset) SetScroll(top);
+        else if (top + RowHeight > _scrollOffset + ClientSize.Height)
+            SetScroll(top + RowHeight - ClientSize.Height);
+    }
+}
+
+/// <summary>
 /// Abgerundete "Card"-Fläche im Windows-11-Stil (heller/dunkler als der
 /// Fensterhintergrund, feiner Rahmen). Für Listen und Einstellungsgruppen.
 /// </summary>

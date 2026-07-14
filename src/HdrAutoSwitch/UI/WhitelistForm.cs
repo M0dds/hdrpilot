@@ -124,6 +124,13 @@ public sealed class WhitelistForm : Form
         _list.SelectedIndexChanged += (_, _) => UpdateButtonStates();
         _list.Resize += (_, _) => FitLastColumn();
         _list.ColumnClick += (_, e) => SortBy(e.Column);
+        // Spaltenbreiten sind fixiert (letzte Spalte passt sich automatisch an).
+        // Verhindert auch das Aufziehen des Header-Füllbereichs rechts.
+        _list.ColumnWidthChanging += (_, e) =>
+        {
+            e.Cancel = true;
+            e.NewWidth = _list.Columns[e.ColumnIndex].Width;
+        };
         card.Controls.Add(_list);
         root.Controls.Add(card, 0, 3);
 
