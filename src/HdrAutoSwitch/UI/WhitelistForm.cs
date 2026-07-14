@@ -59,17 +59,7 @@ public sealed class WhitelistForm : Form
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Command-Bar
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // Card mit Liste
 
-        // ---- Kopfzeile: Titel links, Zahnrad rechts ----
-        var header = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            AutoSize = true,
-            Margin = new Padding(0)
-        };
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-
+        // ---- Kopfzeile: Titel ----
         var heading = new Label
         {
             Text = Loc.T("wl.heading"),
@@ -77,18 +67,7 @@ public sealed class WhitelistForm : Form
             Font = UiFonts.Display(16f),
             Margin = new Padding(0, 0, 0, 2)
         };
-        header.Controls.Add(heading, 0, 0);
-
-        var settingsBtn = new ModernButton
-        {
-            Text = "⚙  " + Loc.T("set.title"),
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Margin = new Padding(0, 2, 0, 0)
-        };
-        settingsBtn.Click += (_, _) => SettingsRequested?.Invoke();
-        header.Controls.Add(settingsBtn, 1, 0);
-        root.Controls.Add(header, 0, 0);
+        root.Controls.Add(heading, 0, 0);
 
         // ---- Untertitel ----
         var hint = new Label
@@ -137,14 +116,34 @@ public sealed class WhitelistForm : Form
         card.Controls.Add(_list);
         root.Controls.Add(card, 0, 3);
 
-        // ---- Fußleiste: Speichern / Abbrechen ----
-        var footer = new FlowLayoutPanel
+        // ---- Fußleiste: Einstellungen links, Abbrechen/Speichern als Gruppe rechts ----
+        var footer = new TableLayoutPanel
         {
             Dock = DockStyle.Bottom,
-            FlowDirection = FlowDirection.RightToLeft,
+            ColumnCount = 2,
             Height = 58,
             Padding = new Padding(20, 12, 20, 12)
         };
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));      // Einstellungen
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));  // Buttongruppe rechts
+
+        var settingsBtn = new ModernButton
+        {
+            Text = "⚙  " + Loc.T("set.title"),
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Margin = new Padding(0)
+        };
+        settingsBtn.Click += (_, _) => SettingsRequested?.Invoke();
+        footer.Controls.Add(settingsBtn, 0, 0);
+
+        var buttonGroup = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.RightToLeft,
+            Margin = new Padding(0)
+        };
+        // Gleiche Margins, sonst stehen die Buttons im FlowLayout versetzt.
         var save = new ModernButton
         {
             Text = Loc.T("wl.btn.save"),
@@ -153,11 +152,12 @@ public sealed class WhitelistForm : Form
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Margin = new Padding(8, 0, 0, 0)
         };
-        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 110, DialogResult = DialogResult.Cancel };
+        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 110, Margin = new Padding(0) };
         save.Click += (_, _) => DoSave();
         cancel.Click += (_, _) => Close();
-        footer.Controls.Add(save);
-        footer.Controls.Add(cancel);
+        buttonGroup.Controls.Add(save);
+        buttonGroup.Controls.Add(cancel);
+        footer.Controls.Add(buttonGroup, 1, 0);
 
         Controls.Add(root);
         Controls.Add(footer);

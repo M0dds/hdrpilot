@@ -46,6 +46,11 @@ public sealed class TrayApplicationContext : ApplicationContext
             Visible = true,
             ContextMenuStrip = BuildMenu()
         };
+        // Linksklick (und Doppelklick) auf das Tray-Icon öffnet das Hauptfenster.
+        _tray.MouseClick += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left) OpenWhitelist();
+        };
         _tray.DoubleClick += (_, _) => OpenWhitelist();
 
         _engine.Switched += OnSwitched;
@@ -173,6 +178,11 @@ public sealed class TrayApplicationContext : ApplicationContext
         _settingsForm = new SettingsForm(clone);
         _settingsForm.Saved += cfg =>
         {
+            // Nur bei Sprach-/Theme-Wechsel muss ein offenes Hauptfenster neu
+            // aufgebaut werden - sonst bleibt alles, wie es ist.
+            bool uiChanged = _config.Theme != cfg.Theme ||
+                             !_config.Language.Equals(cfg.Language, StringComparison.OrdinalIgnoreCase);
+
             // Nur die Einstellungen übernehmen - die Whitelist könnte sich
             // parallel über das Whitelist-Fenster geändert haben.
             _config.StartWithWindows = cfg.StartWithWindows;
@@ -193,9 +203,11 @@ public sealed class TrayApplicationContext : ApplicationContext
             if (_tray.ContextMenuStrip is { } menu)
                 ThemeManager.ApplyToMenu(menu);
 
-            // Offenes Whitelist-Fenster neu aufbauen, damit es sofort in
-            // neuer Sprache/neuem Theme erscheint.
-            if (_whitelistForm is { IsDisposed: false })
+            // Kein automatisches (Wieder-)Öffnen des Hauptfensters: Speichern
+            // schließt nur die Einstellungen. Ist das Hauptfenster gerade offen
+            // UND Sprache/Theme haben sich geändert, wird es neu aufgebaut,
+            // damit es nicht im alten Look stehen bleibt.
+            if (uiChanged && _whitelistForm is { IsDisposed: false })
             {
                 _whitelistForm.Close();
                 OpenWhitelist();

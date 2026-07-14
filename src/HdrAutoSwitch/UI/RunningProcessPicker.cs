@@ -61,8 +61,9 @@ public sealed class RunningProcessPicker : Form
             Height = 58,
             Padding = new Padding(16, 12, 16, 12)
         };
+        // Gleiche Margins, sonst stehen die Buttons im FlowLayout versetzt.
         var ok = new ModernButton { Text = Loc.T("picker.select"), Width = 130, Primary = true, DialogResult = DialogResult.OK, Margin = new Padding(8, 0, 0, 0) };
-        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 110, DialogResult = DialogResult.Cancel };
+        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 110, DialogResult = DialogResult.Cancel, Margin = new Padding(0) };
         ok.Click += (_, _) => Accept();
         buttons.Controls.Add(ok);
         buttons.Controls.Add(cancel);

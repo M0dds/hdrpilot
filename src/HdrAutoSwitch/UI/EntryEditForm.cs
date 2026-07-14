@@ -132,8 +132,9 @@ public sealed class EntryEditForm : Form
             Height = 58,
             Padding = new Padding(16, 12, 16, 12)
         };
+        // Gleiche Margins, sonst stehen die Buttons im FlowLayout versetzt.
         var ok = new ModernButton { Text = Loc.T("common.ok"), Width = 110, Primary = true, DialogResult = DialogResult.OK, Margin = new Padding(8, 0, 0, 0) };
-        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 110, DialogResult = DialogResult.Cancel };
+        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 110, DialogResult = DialogResult.Cancel, Margin = new Padding(0) };
         ok.Click += (_, _) => { if (ValidateInput()) { SaveToResult(); } else DialogResult = DialogResult.None; };
         okCancel.Controls.Add(ok);
         okCancel.Controls.Add(cancel);

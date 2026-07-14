@@ -106,11 +106,8 @@ public sealed class SettingsForm : Form
         _target.Items.AddRange(new[] { Loc.T("target.primary"), Loc.T("target.all") });
         AddRow(behavior, Loc.T("set.target"), _target);
 
-        _onDelay.Width = 140;
-        AddRow(behavior, Loc.T("set.onDelay"), _onDelay, fill: false);
-
-        _offDelay.Width = 140;
-        AddRow(behavior, Loc.T("set.offDelay"), _offDelay, fill: false);
+        AddRow(behavior, Loc.T("set.onDelay"), _onDelay);
+        AddRow(behavior, Loc.T("set.offDelay"), _offDelay);
 
         AddRootRow(root, WrapInCard(behavior));
 
@@ -122,9 +119,12 @@ public sealed class SettingsForm : Form
             Height = 58,
             Padding = new Padding(20, 12, 20, 12)
         };
-        var save = new ModernButton { Text = Loc.T("set.save"), Primary = true, Width = 120, DialogResult = DialogResult.OK, Margin = new Padding(8, 0, 0, 0) };
-        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 120, DialogResult = DialogResult.Cancel };
+        // Gleiche Margins, sonst stehen die Buttons im FlowLayout versetzt.
+        var save = new ModernButton { Text = Loc.T("set.save"), Primary = true, Width = 120, Margin = new Padding(8, 0, 0, 0) };
+        var cancel = new ModernButton { Text = Loc.T("common.cancel"), Width = 120, Margin = new Padding(0) };
         save.Click += (_, _) => DoSave();
+        // Nicht-modal geöffnet -> DialogResult schließt nicht, explizit schließen.
+        cancel.Click += (_, _) => Close();
         buttons.Controls.Add(save);
         buttons.Controls.Add(cancel);
 
