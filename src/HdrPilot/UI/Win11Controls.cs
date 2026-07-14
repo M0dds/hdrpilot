@@ -187,6 +187,212 @@ internal static class Win11Paint
         (int)(a.R + (b.R - a.R) * t),
         (int)(a.G + (b.G - a.G) * t),
         (int)(a.B + (b.B - a.B) * t));
+
+    /// <summary>
+    /// Checkbox-Glyphe im App-Stil (identisch zur "Aktiv"-Spalte der Whitelist):
+    /// abgerundetes Rechteck, Akzentfüllung mit Häkchen bzw. gedämpfte Kontur.
+    /// So haben alle Checkboxen der App denselben Farbton - unabhängig vom
+    /// nativen Windows-Renderer.
+    /// </summary>
+    public static void DrawCheckGlyph(Graphics g, Rectangle box, bool isChecked, bool enabled, bool hover = false)
+    {
+        var p = ThemeManager.Palette;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using var boxPath = RoundedRect(box, 3);
+        if (isChecked)
+        {
+            Color fillColor = !enabled ? Blend(p.Accent, p.Surface, 0.5f)
+                            : hover ? p.AccentHover
+                            : p.Accent;
+            using var fill = new SolidBrush(fillColor);
+            g.FillPath(fill, boxPath);
+            using var check = new Pen(p.AccentText, 1.8f)
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round
+            };
+            g.DrawLines(check, new[]
+            {
+                new Point(box.X + 4, box.Y + 8),
+                new Point(box.X + 7, box.Y + 11),
+                new Point(box.X + 12, box.Y + 5)
+            });
+        }
+        else
+        {
+            using var pen = new Pen(!enabled ? Blend(p.TextMuted, p.Surface, 0.5f)
+                                  : hover ? p.Text
+                                  : p.TextMuted);
+            g.DrawPath(pen, boxPath);
+        }
+    }
+
+    /// <summary>Radio-Glyphe im App-Stil: Akzentkreis mit Innenpunkt bzw. gedämpfte Kontur.</summary>
+    public static void DrawRadioGlyph(Graphics g, Rectangle box, bool isChecked, bool enabled, bool hover = false)
+    {
+        var p = ThemeManager.Palette;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        if (isChecked)
+        {
+            Color fillColor = !enabled ? Blend(p.Accent, p.Surface, 0.5f)
+                            : hover ? p.AccentHover
+                            : p.Accent;
+            using var fill = new SolidBrush(fillColor);
+            g.FillEllipse(fill, box);
+            using var dot = new SolidBrush(p.AccentText);
+            g.FillEllipse(dot, Rectangle.Inflate(box, -5, -5));
+        }
+        else
+        {
+            using var pen = new Pen(!enabled ? Blend(p.TextMuted, p.Surface, 0.5f)
+                                  : hover ? p.Text
+                                  : p.TextMuted);
+            g.DrawEllipse(pen, box);
+        }
+    }
+}
+
+/// <summary>
+/// Checkbox mit App-eigener Glyphe (<see cref="Win11Paint.DrawCheckGlyph"/>),
+/// damit der Akzentton zur restlichen UI passt statt zum nativen Windows-Stil.
+/// </summary>
+internal class ModernCheckBox : CheckBox
+{
+    private const int GlyphSize = 16;
+    private const int TextOffset = GlyphSize + 6;
+    private bool _hover;
+
+    public ModernCheckBox()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+    }
+
+    protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
+    protected override void OnMouseLeave(EventArgs e) { _hover = false; Invalidate(); base.OnMouseLeave(e); }
+    protected override void OnCheckedChanged(EventArgs e) { Invalidate(); base.OnCheckedChanged(e); }
+
+    public override Size GetPreferredSize(Size proposedSize)
+    {
+        int maxText = proposedSize.Width > 0 && proposedSize.Width < int.MaxValue
+            ? Math.Max(1, proposedSize.Width - TextOffset - 2)
+            : int.MaxValue;
+        var text = TextRenderer.MeasureText(Text, Font, new Size(maxText, int.MaxValue),
+            TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+        return new Size(TextOffset + text.Width + 2, Math.Max(GlyphSize + 4, text.Height + 4));
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var p = ThemeManager.Palette;
+        var g = e.Graphics;
+        g.Clear(Parent?.BackColor ?? p.Surface);
+
+        // Bei mehrzeiligem Text an der ersten Zeile ausrichten, sonst mittig.
+        int rowHeight = Math.Min(Height, Font.Height + 4);
+        var box = new Rectangle(0, Math.Max(1, (rowHeight - GlyphSize) / 2 + 1), GlyphSize, GlyphSize);
+        Win11Paint.DrawCheckGlyph(g, box, Checked, Enabled, _hover);
+
+        var textRect = new Rectangle(TextOffset, 0, Math.Max(1, Width - TextOffset), Height);
+        TextRenderer.DrawText(g, Text, Font, textRect,
+            Enabled ? ForeColor : p.TextMuted,
+            TextFormatFlags.Left | TextFormatFlags.VerticalCenter |
+            TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+
+        if (Focused && ShowFocusCues)
+            ControlPaint.DrawFocusRectangle(g, Rectangle.Inflate(textRect, -1, -1));
+    }
+}
+
+/// <summary>Radiobutton mit App-eigener Glyphe, analog zu <see cref="ModernCheckBox"/>.</summary>
+internal sealed class ModernRadioButton : RadioButton
+{
+    private const int GlyphSize = 16;
+    private const int TextOffset = GlyphSize + 6;
+    private bool _hover;
+
+    public ModernRadioButton()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+    }
+
+    protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
+    protected override void OnMouseLeave(EventArgs e) { _hover = false; Invalidate(); base.OnMouseLeave(e); }
+    protected override void OnCheckedChanged(EventArgs e) { Invalidate(); base.OnCheckedChanged(e); }
+
+    public override Size GetPreferredSize(Size proposedSize)
+    {
+        int maxText = proposedSize.Width > 0 && proposedSize.Width < int.MaxValue
+            ? Math.Max(1, proposedSize.Width - TextOffset - 2)
+            : int.MaxValue;
+        var text = TextRenderer.MeasureText(Text, Font, new Size(maxText, int.MaxValue),
+            TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+        return new Size(TextOffset + text.Width + 2, Math.Max(GlyphSize + 4, text.Height + 4));
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var p = ThemeManager.Palette;
+        var g = e.Graphics;
+        g.Clear(Parent?.BackColor ?? p.Surface);
+
+        int rowHeight = Math.Min(Height, Font.Height + 4);
+        var box = new Rectangle(0, Math.Max(1, (rowHeight - GlyphSize) / 2 + 1), GlyphSize, GlyphSize);
+        Win11Paint.DrawRadioGlyph(g, box, Checked, Enabled, _hover);
+
+        var textRect = new Rectangle(TextOffset, 0, Math.Max(1, Width - TextOffset), Height);
+        TextRenderer.DrawText(g, Text, Font, textRect,
+            Enabled ? ForeColor : p.TextMuted,
+            TextFormatFlags.Left | TextFormatFlags.VerticalCenter |
+            TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+
+        if (Focused && ShowFocusCues)
+            ControlPaint.DrawFocusRectangle(g, Rectangle.Inflate(textRect, -1, -1));
+    }
+}
+
+/// <summary>
+/// CheckedListBox, die ihre Einträge mit der App-Checkbox-Glyphe zeichnet,
+/// damit der Akzentton zu <see cref="ModernCheckBox"/> und Whitelist passt.
+/// </summary>
+internal sealed class ModernCheckedListBox : CheckedListBox
+{
+    public ModernCheckedListBox()
+    {
+        DoubleBuffered = true;
+        ItemHeight = 26;
+    }
+
+    protected override void OnDrawItem(DrawItemEventArgs e)
+    {
+        if (e.Index < 0) return;
+        var p = ThemeManager.Palette;
+        var g = e.Graphics;
+
+        using (var back = new SolidBrush(BackColor))
+            g.FillRectangle(back, e.Bounds);
+
+        // Auswahl-/Fokuszeile dezent hinterlegen (wie in der Whitelist-Tabelle).
+        if ((e.State & DrawItemState.Selected) != 0 && Enabled)
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            var r = Rectangle.Inflate(e.Bounds, -2, -1);
+            using var path = Win11Paint.RoundedRect(r, 4);
+            using var fill = new SolidBrush(Win11Paint.Blend(BackColor, p.Hover, 0.55f));
+            g.FillPath(fill, path);
+        }
+
+        var box = new Rectangle(e.Bounds.X + 4, e.Bounds.Y + (e.Bounds.Height - 16) / 2, 16, 16);
+        Win11Paint.DrawCheckGlyph(g, box, GetItemChecked(e.Index), Enabled);
+
+        var textRect = new Rectangle(box.Right + 6, e.Bounds.Y,
+            Math.Max(1, e.Bounds.Right - box.Right - 8), e.Bounds.Height);
+        TextRenderer.DrawText(g, GetItemText(Items[e.Index]), Font, textRect,
+            Enabled ? p.Text : p.TextMuted,
+            TextFormatFlags.Left | TextFormatFlags.VerticalCenter |
+            TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+    }
 }
 
 /// <summary>

@@ -12,9 +12,9 @@ public sealed class SettingsForm : Form
     private readonly ModernComboBox _language = new();
     private readonly ModernComboBox _theme = new();
     private readonly ModernComboBox _target = new();
-    private readonly CheckBox _autostart = new();
-    private readonly CheckBox _notify = new();
-    private readonly CheckBox _restore = new();
+    private readonly ModernCheckBox _autostart = new();
+    private readonly ModernCheckBox _notify = new();
+    private readonly ModernCheckBox _restore = new();
     private readonly ModernComboBox _onDelay = new();
     private readonly ModernComboBox _offDelay = new();
 
