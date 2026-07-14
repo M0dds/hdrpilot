@@ -85,6 +85,12 @@ public sealed class AutoSwitchEngine : IDisposable
 
         Logger.Info($"Treffer: {evt.ProcessName} (PID {evt.Pid}) -> {match.DisplayName}");
 
+        // Auto-HDR global sofort (ohne Debounce) einschalten: das Spiel liest die
+        // Einstellung beim Erzeugen seiner Swapchain, jede Verzögerung riskiert,
+        // dass die Session ohne Auto-HDR startet.
+        if (match.EnableAutoHdr)
+            AutoHdrController.EnableGlobalForSession();
+
         // Debounce beim Einschalten - nicht-blockierend, damit der WMI-Thread frei bleibt.
         int delay = firstActivation ? _config.OnDebounceMs : 0;
         if (delay > 0)
@@ -157,6 +163,10 @@ public sealed class AutoSwitchEngine : IDisposable
         // Sicherheits-Check: In der Debounce-Zeit könnte ein neues Programm gestartet sein.
         if (!_activePids.IsEmpty) return;
 
+        // Globales Auto-HDR immer zurücksetzen - unabhängig von RestorePreviousState:
+        // Das betrifft alle Spiele systemweit und soll nur während der Session gelten.
+        AutoHdrController.RestoreGlobalAfterSession();
+
         bool restore;
         List<string> toDisable;
         lock (_sync)
@@ -189,6 +199,7 @@ public sealed class AutoSwitchEngine : IDisposable
     public void ShutdownCleanup()
     {
         CancelOffTimer();
+        AutoHdrController.RestoreGlobalAfterSession();
         bool restore;
         List<string> toDisable;
         lock (_sync)

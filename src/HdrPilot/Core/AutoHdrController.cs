@@ -11,8 +11,16 @@ namespace HdrPilot.Core;
 ///
 /// AutoHDREnable: Bit 0 = eingeschaltet. Windows 11 24H2 schreibt für die
 /// Per-App-Auswahl "Ein" den Wert 2097 (Enable- plus Override-Flags); dieselbe
-/// Kodierung nutzt auch diese App. Die Per-App-Einstellung übersteuert den
-/// globalen Auto-HDR-Schalter (DirectXUserGlobalSettings).
+/// Kodierung nutzt auch diese App.
+///
+/// Wichtig: Das Per-App-Token wirkt nur als Eignungs-Freigabe (es nimmt die Exe
+/// in die Auto-HDR-Kandidatenliste auf, auch außerhalb von Microsofts
+/// Kompatibilitätsliste). Der eigentliche Ein/Aus-Schalter ist der GLOBALE Wert
+/// (DirectXUserGlobalSettings) - steht der auf aus, bleibt Auto-HDR trotz
+/// Per-App-Token inaktiv und Windows fragt per Toast nach. Deshalb schaltet
+/// die Engine den globalen Wert für die Dauer einer Spielsession ein
+/// (<see cref="EnableGlobalForSession"/>/<see cref="RestoreGlobalAfterSession"/>)
+/// und stellt danach den vorherigen Zustand wieder her.
 ///
 /// Geschrieben wird beim Speichern der Whitelist (nicht erst beim Prozessstart):
 /// Auto-HDR wird vom Spiel beim Start gelesen, das WMI-Startereignis käme zu spät.
@@ -23,6 +31,76 @@ internal static class AutoHdrController
     private const string GlobalValueName = "DirectXUserGlobalSettings";
     private const string TokenName = "AutoHDREnable";
     private const uint EnabledValue = 2097; // Kodierung der Windows-Settings-Auswahl "Ein" (24H2)
+
+    // Zustand des Session-Toggles: gemerkter globaler Wert vor unserem Eingriff.
+    // _sessionActive unterscheidet "kein Eingriff nötig" von "Wert war nicht vorhanden".
+    private static readonly object SessionLock = new();
+    private static bool _sessionActive;
+    private static string? _previousGlobalPrefs;
+
+    /// <summary>
+    /// Schaltet den globalen Auto-HDR-Schalter für die laufende Spielsession ein
+    /// und merkt sich den vorherigen Wert. Idempotent; kein Eingriff, wenn
+    /// Auto-HDR global bereits an ist.
+    /// </summary>
+    public static void EnableGlobalForSession()
+    {
+        lock (SessionLock)
+        {
+            if (_sessionActive) return;
+            try
+            {
+                using var key = Registry.CurrentUser.CreateSubKey(KeyPath, writable: true);
+                if (key is null) return;
+
+                string? prefs = key.GetValue(GlobalValueName) as string;
+                if (prefs is not null && TryGetToken(prefs, out uint v) && (v & 1) != 0)
+                    return; // global schon an - nichts zu tun, nichts wiederherstellen
+
+                _previousGlobalPrefs = prefs;
+                string merged = RemoveToken(prefs ?? string.Empty) + $"{TokenName}={EnabledValue};";
+                key.SetValue(GlobalValueName, merged);
+                _sessionActive = true;
+                Logger.Info("Auto-HDR global EIN (für Spielsession).");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Globales Auto-HDR konnte nicht aktiviert werden.", ex);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Stellt den globalen Auto-HDR-Wert nach Sessionende wieder her,
+    /// sofern <see cref="EnableGlobalForSession"/> ihn verändert hatte.
+    /// </summary>
+    public static void RestoreGlobalAfterSession()
+    {
+        lock (SessionLock)
+        {
+            if (!_sessionActive) return;
+            try
+            {
+                using var key = Registry.CurrentUser.CreateSubKey(KeyPath, writable: true);
+                if (key is null) return;
+
+                if (_previousGlobalPrefs is null)
+                    key.DeleteValue(GlobalValueName, throwOnMissingValue: false);
+                else
+                    key.SetValue(GlobalValueName, _previousGlobalPrefs);
+                Logger.Info("Auto-HDR global wiederhergestellt (Sessionende).");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Globales Auto-HDR konnte nicht wiederhergestellt werden.", ex);
+            }
+            finally
+            {
+                _sessionActive = false;
+                _previousGlobalPrefs = null;
+            }
+        }
+    }
 
     /// <summary>
     /// Globaler Auto-HDR-Schalter aus den Windows-Einstellungen.
