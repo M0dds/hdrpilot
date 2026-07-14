@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using HdrPilot.Models;
 
@@ -5,24 +6,37 @@ namespace HdrPilot.Core;
 
 /// <summary>
 /// Liest und setzt NVIDIA RTX HDR (intern "TrueHDR") pro Spiel über das
-/// NVIDIA-Treiberprofil (DRS) via nvapi64.dll - derselbe Mechanismus, den die
-/// NVIDIA App nutzt: Setting 0x00DD48FB = "Enable TrueHDR Feature", 1 = aktiv.
+/// NVIDIA-Treiberprofil (DRS) via nvapi64.dll - derselbe Mechanismus wie
+/// NVIDIA App / NvTrueHDR / Profile Inspector.
 ///
-/// Zuordnung erfolgt über den Exe-Dateinamen (Anwendungsprofil); existiert für
-/// ein Spiel noch kein Profil, wird eines angelegt. Beim Deaktivieren wird das
-/// Setting nur entfernt, wenn es aktuell aktiv (1) ist - eine anderslautende
-/// Wahl aus der NVIDIA App bleibt unangetastet.
+/// Settings (auf Treiber 610.74 verifiziert):
+///  - 0x00432F84 "TrueHDR flags": Bit 1 = aktiv, Bit 0 = Bildschirm-Indikator,
+///    Qualität: +0x04 = niedrig, +0x08 = mittel, ohne Zusatzbits = sehr hoch.
+///  - 0x1077A11A: muss zusätzlich auf 1 stehen (Community/NvTrueHDR).
+///  - 0x00DD48FB "Enable TrueHDR" (NVIDIA-App-Ära, R550): in neuen Treibern
+///    aus der Setting-Tabelle entfernt - wird nur noch gelesen (alte Treiber).
 ///
-/// Geschrieben wird beim Speichern der Whitelist (nicht erst beim Prozessstart):
-/// der Treiber liest das Profil beim Spielstart. Die Feinabstimmung
-/// (Peak-Helligkeit, Sättigung usw.) bleibt der NVIDIA App überlassen.
+/// WICHTIG: Das Schreiben dieser Settings verlangt seit neueren Treibern
+/// Administratorrechte (NVAPI_INVALID_USER_PRIVILEGE ohne Elevation).
+/// Deshalb schreibt nicht der Tray-Prozess selbst, sondern ein kurzlebiger
+/// elevierter Selbstaufruf ("HdrPilot.exe --apply-rtx ...", eine UAC-Abfrage
+/// je Whitelist-Speicherung). Lesen geht ohne Elevation.
 ///
-/// Alle Aufrufe sind defensiv: ohne NVIDIA-Treiber oder bei unerwarteten
-/// Strukturen liefert die Erkennung null ("unbekannt") bzw. loggt nur.
+/// Beim Deaktivieren werden die Settings nur entfernt, wenn RTX HDR aktuell
+/// aktiv ist; eine abweichende Wahl aus der NVIDIA App bleibt unangetastet.
+/// Die Feinabstimmung (Peak-Helligkeit, Sättigung usw.) bleibt der NVIDIA App
+/// überlassen. Alle Aufrufe sind defensiv: ohne NVIDIA-Treiber liefert die
+/// Erkennung null ("unbekannt") bzw. es wird nur geloggt.
 /// </summary>
 internal static class RtxHdrController
 {
-    private const uint TrueHdrSettingId = 0x00DD48FB;
+    private const uint TrueHdrFlagsSettingId = 0x00432F84;
+    private const uint TrueHdrAuxSettingId = 0x1077A11A;
+    private const uint LegacyTrueHdrSettingId = 0x00DD48FB;
+
+    private const uint FlagsEnableBit = 0x2;
+    private const uint FlagsEnabledVeryHigh = 0x2; // aktiv, höchste Qualität, kein Indikator
+
     private const uint DrsDwordType = 0; // NVDRS_DWORD_TYPE
 
     // nvapi_QueryInterface-Funktions-IDs (öffentliches NvAPI-DRS-Interface)
@@ -121,7 +135,7 @@ internal static class RtxHdrController
     }
 
     // ---------------------------------------------------------------
-    // Lesen
+    // Lesen (ohne Elevation möglich)
     // ---------------------------------------------------------------
 
     /// <summary>
@@ -178,17 +192,108 @@ internal static class RtxHdrController
     }
 
     // ---------------------------------------------------------------
-    // Schreiben
+    // Änderungs-Ermittlung und elevierte Anwendung
     // ---------------------------------------------------------------
 
     /// <summary>
-    /// Setzt oder entfernt RTX HDR im Anwendungsprofil einer Exe.
-    /// Beim Aktivieren wird das Profil bei Bedarf angelegt; beim Deaktivieren
-    /// wird das Setting nur entfernt, wenn es aktuell aktiv (1) ist.
+    /// Ermittelt aus einer Whitelist-Änderung, welche Exes RTX HDR bekommen
+    /// bzw. verlieren sollen. Die eigentliche Anwendung geschieht eleviert
+    /// über <see cref="ApplyElevated"/>.
     /// </summary>
-    public static void SetForApp(string exeFileName, bool enable)
+    public static List<(string Exe, bool Enable)> PendingChanges(
+        IEnumerable<WhitelistEntry> oldEntries, IEnumerable<WhitelistEntry> newEntries)
     {
-        WithSession<object?>((nv, session) =>
+        var wanted = ExesWithRtxHdr(newEntries);
+        var previous = ExesWithRtxHdr(oldEntries);
+
+        var changes = new List<(string, bool)>();
+        foreach (var exe in previous.Except(wanted))
+            changes.Add((exe, false));
+        foreach (var exe in wanted)
+        {
+            // Idempotent: nur anfassen, wenn noch nicht aktiv - erspart
+            // unnötige UAC-Abfragen beim Speichern unveränderter Listen.
+            if (IsRtxHdrEnabled(exe) != true)
+                changes.Add((exe, true));
+        }
+        return changes;
+    }
+
+    /// <summary>
+    /// Wendet RTX-HDR-Änderungen über einen elevierten Selbstaufruf an
+    /// ("HdrPilot.exe --apply-rtx exe|on ..."). Blockiert bis zum Abschluss.
+    /// false = UAC abgebrochen oder Anwendung fehlgeschlagen.
+    /// </summary>
+    public static bool ApplyElevated(IReadOnlyList<(string Exe, bool Enable)> changes)
+    {
+        if (changes.Count == 0) return true;
+
+        string exePath = Environment.ProcessPath ?? "";
+        if (exePath.Length == 0) return false;
+
+        string args = "--apply-rtx " + string.Join(' ',
+            changes.Select(c => $"\"{c.Exe}|{(c.Enable ? "on" : "off")}\""));
+        try
+        {
+            using var proc = Process.Start(new ProcessStartInfo
+            {
+                FileName = exePath,
+                Arguments = args,
+                UseShellExecute = true, // nötig für Verb "runas" (UAC)
+                Verb = "runas",
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+            if (proc is null) return false;
+            if (!proc.WaitForExit(120_000)) return false;
+            return proc.ExitCode == 0;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            Logger.Warn("RTX-HDR-Anwendung abgebrochen (UAC verweigert).");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Elevierter RTX-HDR-Aufruf fehlgeschlagen.", ex);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Einstiegspunkt des elevierten Hilfsmodus (Argumente nach "--apply-rtx",
+    /// Format je Token "exename.exe|on" bzw. "|off"). Rückgabe = Prozess-Exitcode.
+    /// </summary>
+    public static int RunApplyCli(IEnumerable<string> tokens)
+    {
+        bool allOk = true;
+        foreach (string token in tokens)
+        {
+            int sep = token.LastIndexOf('|');
+            if (sep <= 0) { allOk = false; continue; }
+            string exe = token[..sep];
+            bool enable = token[(sep + 1)..].Equals("on", StringComparison.OrdinalIgnoreCase);
+            try
+            {
+                if (!SetForApp(exe, enable)) allOk = false;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"RTX-HDR-Profil-Update fehlgeschlagen für \"{exe}\".", ex);
+                allOk = false;
+            }
+        }
+        return allOk ? 0 : 1;
+    }
+
+    /// <summary>
+    /// Setzt oder entfernt RTX HDR im Anwendungsprofil einer Exe. Erfordert
+    /// Administratorrechte (siehe Klassenkommentar). Beim Aktivieren wird das
+    /// Profil bei Bedarf angelegt; beim Deaktivieren werden die Settings nur
+    /// entfernt, wenn RTX HDR aktuell aktiv ist.
+    /// </summary>
+    private static bool SetForApp(string exeFileName, bool enable)
+    {
+        return WithSession<bool?>((nv, session) =>
         {
             bool found = TryFindAppProfile(nv, session, exeFileName, out IntPtr profile);
 
@@ -200,76 +305,48 @@ internal static class RtxHdrController
                     if (profile == IntPtr.Zero)
                     {
                         Logger.Error($"RTX HDR: Profil für \"{exeFileName}\" konnte nicht angelegt werden.");
-                        return null;
+                        return false;
                     }
                 }
 
-                if (ReadTrueHdr(nv, session, profile) == true) return null; // schon aktiv
+                if (ReadTrueHdr(nv, session, profile) == true) return true; // schon aktiv
 
-                var setting = NewSetting();
-                setting.SettingId = TrueHdrSettingId;
-                setting.SettingType = DrsDwordType;
-                BitConverter.GetBytes(1u).CopyTo(setting.CurrentValue, 0);
-
-                if (nv.SetSetting(session, profile, ref setting) != NvapiOk)
+                int stFlags = SetDword(nv, session, profile, TrueHdrFlagsSettingId, FlagsEnabledVeryHigh);
+                int stAux = SetDword(nv, session, profile, TrueHdrAuxSettingId, 1);
+                if (stFlags != NvapiOk || stAux != NvapiOk)
                 {
-                    Logger.Error($"RTX HDR: Setting für \"{exeFileName}\" konnte nicht gesetzt werden.");
-                    return null;
+                    Logger.Error($"RTX HDR: Setting für \"{exeFileName}\" konnte nicht gesetzt werden " +
+                                 $"(flags={stFlags}, aux={stAux}).");
+                    return false;
                 }
-                if (nv.SaveSettings(session) == NvapiOk)
-                    Logger.Info($"RTX HDR EIN (Treiberprofil): {exeFileName}");
-                return null;
+                if (nv.SaveSettings(session) != NvapiOk)
+                {
+                    Logger.Error($"RTX HDR: Speichern der Treiberprofile fehlgeschlagen ({exeFileName}).");
+                    return false;
+                }
+                Logger.Info($"RTX HDR EIN (Treiberprofil): {exeFileName}");
+                return true;
             }
 
-            // Deaktivieren: nur zurücknehmen, was aktiv auf 1 steht.
-            if (!found || ReadTrueHdr(nv, session, profile) != true) return null;
+            // Deaktivieren: nur zurücknehmen, wenn aktuell aktiv.
+            if (!found || ReadTrueHdr(nv, session, profile) != true) return true;
 
-            if (nv.DeleteProfileSetting(session, profile, TrueHdrSettingId) == NvapiOk &&
-                nv.SaveSettings(session) == NvapiOk)
+            nv.DeleteProfileSetting(session, profile, TrueHdrFlagsSettingId);
+            nv.DeleteProfileSetting(session, profile, TrueHdrAuxSettingId);
+            if (nv.SaveSettings(session) != NvapiOk)
             {
-                Logger.Info($"RTX HDR AUS (Treiberprofil): {exeFileName}");
+                Logger.Error($"RTX HDR: Speichern der Treiberprofile fehlgeschlagen ({exeFileName}).");
+                return false;
             }
-            return null;
-        });
-    }
-
-    /// <summary>
-    /// Gleicht die Treiberprofile mit einer Whitelist-Änderung ab: Exes, die
-    /// RTX HDR verlieren, werden zurückgesetzt; alle gewünschten (idempotent) gesetzt.
-    /// </summary>
-    public static void ApplyWhitelistChange(IEnumerable<WhitelistEntry> oldEntries, IEnumerable<WhitelistEntry> newEntries)
-    {
-        var wanted = ExesWithRtxHdr(newEntries);
-        var previous = ExesWithRtxHdr(oldEntries);
-
-        foreach (var exe in previous.Except(wanted))
-            Try(() => SetForApp(exe, enable: false), exe);
-        foreach (var exe in wanted)
-            Try(() => SetForApp(exe, enable: true), exe);
-    }
-
-    /// <summary>
-    /// Beim App-Start: stellt sicher, dass alle konfigurierten Einträge ihr
-    /// Treiberprofil-Setting haben (z. B. nach Treiber-Neuinstallation).
-    /// Entfernt nichts.
-    /// </summary>
-    public static void EnsureApplied(IEnumerable<WhitelistEntry> entries)
-    {
-        foreach (var exe in ExesWithRtxHdr(entries))
-            Try(() => SetForApp(exe, enable: true), exe);
+            Logger.Info($"RTX HDR AUS (Treiberprofil): {exeFileName}");
+            return true;
+        }) == true;
     }
 
     private static HashSet<string> ExesWithRtxHdr(IEnumerable<WhitelistEntry> entries) =>
         entries.Where(e => e.EnableRtxHdr && !string.IsNullOrWhiteSpace(e.ExeFileName))
                .Select(e => e.ExeFileName!)
                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-    private static void Try(Action action, string exe)
-    {
-        try { action(); }
-        catch (DllNotFoundException) { /* kein NVIDIA-Treiber - still ignorieren */ }
-        catch (Exception ex) { Logger.Error($"RTX-HDR-Profil-Update fehlgeschlagen für \"{exe}\".", ex); }
-    }
 
     // ---------------------------------------------------------------
     // DRS-Hilfen
@@ -385,13 +462,39 @@ internal static class RtxHdrController
         return profile;
     }
 
-    /// <summary>Liest das TrueHDR-Setting eines Profils; null = Setting nicht vorhanden/lesbar.</summary>
+    /// <summary>
+    /// Liest den RTX-HDR-Status eines Profils: zuerst die TrueHDR-Flags
+    /// (aktuelle Treiber), dann das Legacy-Enable (ältere Treiber).
+    /// null = in diesem Profil nicht gesetzt.
+    /// </summary>
     private static bool? ReadTrueHdr(NvApi nv, IntPtr session, IntPtr profile)
     {
+        if (TryGetDword(nv, session, profile, TrueHdrFlagsSettingId, out uint flags))
+            return (flags & FlagsEnableBit) != 0;
+        if (TryGetDword(nv, session, profile, LegacyTrueHdrSettingId, out uint legacy))
+            return legacy == 1;
+        return null;
+    }
+
+    private static bool TryGetDword(NvApi nv, IntPtr session, IntPtr profile, uint settingId, out uint value)
+    {
         var setting = NewSetting();
-        if (nv.GetSetting(session, profile, TrueHdrSettingId, ref setting) != NvapiOk)
-            return null; // Setting im Profil nicht gesetzt
-        return BitConverter.ToUInt32(setting.CurrentValue, 0) == 1;
+        if (nv.GetSetting(session, profile, settingId, ref setting) != NvapiOk)
+        {
+            value = 0;
+            return false;
+        }
+        value = BitConverter.ToUInt32(setting.CurrentValue, 0);
+        return true;
+    }
+
+    private static int SetDword(NvApi nv, IntPtr session, IntPtr profile, uint settingId, uint value)
+    {
+        var setting = NewSetting();
+        setting.SettingId = settingId;
+        setting.SettingType = DrsDwordType;
+        BitConverter.GetBytes(value).CopyTo(setting.CurrentValue, 0);
+        return nv.SetSetting(session, profile, ref setting);
     }
 
     private static NvDrsSetting NewSetting() => new()
