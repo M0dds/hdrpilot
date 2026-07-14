@@ -39,9 +39,6 @@ public sealed class TrayApplicationContext : ApplicationContext
 
         // Auto-HDR-Registry-Tokens für konfigurierte Einträge sicherstellen
         // (idempotent; repariert z. B. von außen entfernte Einstellungen).
-        // RTX-HDR-Profile werden hier bewusst NICHT abgeglichen: das Schreiben
-        // erfordert Admin-Rechte und würde bei jedem Start eine UAC-Abfrage
-        // auslösen - es passiert nur beim Speichern der Whitelist.
         AutoHdrController.EnsureApplied(_config.Whitelist);
 
         _engine = new AutoSwitchEngine(_hdr, _watcher, _config);
@@ -166,9 +163,6 @@ public sealed class TrayApplicationContext : ApplicationContext
             // Auto-HDR-Registry abgleichen: entfernte/abgewählte Einträge
             // zurücksetzen, gewünschte setzen.
             AutoHdrController.ApplyWhitelistChange(oldWhitelist, _config.Whitelist);
-            // RTX-HDR-Änderungen brauchen Admin-Rechte -> elevierter
-            // Selbstaufruf (eine UAC-Abfrage), asynchron mit Fehlermeldung.
-            ApplyRtxHdrChanges(RtxHdrController.PendingChanges(oldWhitelist, _config.Whitelist));
             _store.Save(_config);
             _engine.UpdateConfig(_config);
             // Nach dem Speichern erneut laufende Prozesse prüfen.
@@ -176,26 +170,6 @@ public sealed class TrayApplicationContext : ApplicationContext
         };
         _whitelistForm.Show();
         _whitelistForm.BringToFront();
-    }
-
-    /// <summary>
-    /// Wendet RTX-HDR-Änderungen über den elevierten Selbstaufruf an - im
-    /// Hintergrund, damit die UAC-Abfrage die UI nicht blockiert. Schlägt die
-    /// Anwendung fehl (z. B. UAC abgebrochen), wird der Nutzer informiert.
-    /// </summary>
-    private void ApplyRtxHdrChanges(IReadOnlyList<(string Exe, bool Enable)> changes)
-    {
-        if (changes.Count == 0) return;
-        Task.Run(() =>
-        {
-            bool ok = RtxHdrController.ApplyElevated(changes);
-            if (!ok)
-            {
-                _ui.Post(_ => MessageBox.Show(
-                    Loc.T("rtx.applyFailedMsg"), Loc.T("rtx.applyFailedTitle"),
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning), null);
-            }
-        });
     }
 
     private void OpenSettings()

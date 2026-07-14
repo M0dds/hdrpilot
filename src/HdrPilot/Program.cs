@@ -10,15 +10,6 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        // Elevierter Hilfsmodus: RTX-HDR-Treiberprofile schreiben und sofort
-        // beenden. Muss VOR der Single-Instance-Prüfung laufen, weil die
-        // Tray-Instanz parallel weiterläuft und auf den Exitcode wartet.
-        if (args.Length > 0 && args[0].Equals("--apply-rtx", StringComparison.OrdinalIgnoreCase))
-        {
-            Environment.Exit(RtxHdrController.RunApplyCli(args.Skip(1)));
-            return;
-        }
-
         // Daten aus der Zeit vor der Umbenennung (HdrAutoSwitch -> HDR Pilot) übernehmen.
         MigrateLegacyData();
 

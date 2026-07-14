@@ -42,28 +42,6 @@ public sealed class WhitelistEntry
     public bool EnableAutoHdr { get; set; } = false;
 
     /// <summary>
-    /// NVIDIA RTX HDR für dieses Programm aktivieren (Treiberprofil-Einstellung).
-    /// Schließt <see cref="EnableAutoHdr"/> aus - beide wenden Tone-Mapping an.
-    /// Standard: aus.
-    /// </summary>
-    public bool EnableRtxHdr { get; set; } = false;
-
-    /// <summary>
-    /// Exe-Dateiname des Eintrags (z. B. "warframe.x64.exe"), abgeleitet aus
-    /// Prozessname oder Pfad. NVIDIA-Treiberprofile werden darüber zugeordnet.
-    /// </summary>
-    [JsonIgnore]
-    public string? ExeFileName
-    {
-        get
-        {
-            if (!string.IsNullOrWhiteSpace(ProcessName)) return ProcessName.Trim();
-            if (!string.IsNullOrWhiteSpace(FullPath)) return Path.GetFileName(FullPath.Trim());
-            return null;
-        }
-    }
-
-    /// <summary>
     /// Prüft, ob ein laufender Prozess auf diesen Eintrag passt.
     /// </summary>
     /// <param name="processName">Prozessname inkl. ".exe" (z. B. aus WMI).</param>
