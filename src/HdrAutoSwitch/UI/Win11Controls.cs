@@ -512,6 +512,7 @@ internal sealed class ModernComboBox : Control
 
         _popup = popup;
         popup.Show(FindForm());
+        ThemeManager.RoundPopupCorners(popup); // Win11-Rundung (kleiner Radius wie Menüs)
         popup.Activate();
     }
 
@@ -545,10 +546,13 @@ internal sealed class ModernComboBox : Control
             var p = ThemeManager.Palette;
             var g = e.Graphics;
             g.Clear(p.Surface);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-            // Eigener 1px-Rahmen in Palettenfarbe (nie System-Weiß)
+            // Eigener Rahmen in Palettenfarbe, Radius passend zur
+            // DWM-Fensterrundung (ROUNDSMALL = 4px)
             using (var border = new Pen(p.Border))
-                g.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+            using (var borderPath = Win11Paint.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), 4))
+                g.DrawPath(border, borderPath);
 
             for (int i = 0; i < _items.Count; i++)
             {

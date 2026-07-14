@@ -347,6 +347,41 @@ internal static class ThemeManager
         lv.DrawSubItem += (_, e) =>
         {
             var pal = Palette;
+
+            // Zellen mit bool-Tag werden als klickbare Checkbox gezeichnet
+            // (z. B. "Aktiv" in der Whitelist) - der Text bleibt für die
+            // Sortierung erhalten, wird aber nicht angezeigt.
+            if (e.SubItem?.Tag is bool isChecked)
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                const int size = 16;
+                var box = new Rectangle(e.Bounds.X + 6, e.Bounds.Y + (e.Bounds.Height - size) / 2, size, size);
+                using var boxPath = Win11Paint.RoundedRect(box, 3);
+                if (isChecked)
+                {
+                    using var fill = new SolidBrush(pal.Accent);
+                    g.FillPath(fill, boxPath);
+                    using var check = new Pen(pal.AccentText, 1.8f)
+                    {
+                        StartCap = System.Drawing.Drawing2D.LineCap.Round,
+                        EndCap = System.Drawing.Drawing2D.LineCap.Round
+                    };
+                    g.DrawLines(check, new[]
+                    {
+                        new Point(box.X + 4, box.Y + 8),
+                        new Point(box.X + 7, box.Y + 11),
+                        new Point(box.X + 12, box.Y + 5)
+                    });
+                }
+                else
+                {
+                    using var pen = new Pen(pal.TextMuted);
+                    g.DrawPath(pen, boxPath);
+                }
+                return;
+            }
+
             // Quirk: Für Spalte 0 liefert e.Bounds die GESAMTE Zeile.
             int cellWidth = e.ColumnIndex == 0 && lv.Columns.Count > 0
                 ? lv.Columns[0].Width
@@ -448,6 +483,25 @@ internal static class ThemeManager
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+    private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    private const int DWMWCP_ROUNDSMALL = 3;
+
+    /// <summary>
+    /// Rundet die Ecken eines Popup-Fensters im Windows-11-Stil (kleiner Radius,
+    /// wie bei Menüs). Nach dem Anzeigen aufrufen (Handle muss existieren).
+    /// </summary>
+    public static void RoundPopupCorners(Form popup)
+    {
+        try
+        {
+            int pref = DWMWCP_ROUNDSMALL;
+            _ = DwmSetWindowAttribute(popup.Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref pref, sizeof(int));
+        }
+        catch
+        {
+            // Vor Windows 11 nicht verfügbar - dann bleibt das Popup eckig.
+        }
+    }
 
     private static void ApplyDarkTitleBar(Form form)
     {

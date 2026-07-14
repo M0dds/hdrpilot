@@ -133,6 +133,18 @@ public sealed class WhitelistForm : Form
             e.Cancel = true;
             e.NewWidth = _list.Columns[e.ColumnIndex].Width;
         };
+
+        // Klick auf die Aktiv-Checkbox schaltet den Eintrag direkt um.
+        _list.MouseClick += (_, e) =>
+        {
+            if (HitActiveCell(e.Location) is not { } item || item.Tag is not WhitelistEntry entry) return;
+            entry.Enabled = !entry.Enabled;
+            item.SubItems[3].Text = entry.Enabled ? Loc.T("common.yes") : Loc.T("common.no");
+            item.SubItems[3].Tag = entry.Enabled;
+            _list.Invalidate(item.Bounds);
+        };
+        _list.MouseMove += (_, e) =>
+            _list.Cursor = HitActiveCell(e.Location) is not null ? Cursors.Hand : Cursors.Default;
         card.Controls.Add(_list);
         root.Controls.Add(card, 0, 3);
 
@@ -167,6 +179,14 @@ public sealed class WhitelistForm : Form
         b.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         b.Margin = new Padding(0, 0, 8, 0);
         b.Click += onClick;
+    }
+
+    /// <summary>Liefert die Zeile, wenn der Punkt in der Aktiv-Spalte (Checkbox) liegt.</summary>
+    private ListViewItem? HitActiveCell(Point location)
+    {
+        var hit = _list.HitTest(location);
+        if (hit.Item is null || hit.SubItem is null) return null;
+        return hit.Item.SubItems.IndexOf(hit.SubItem) == 3 ? hit.Item : null;
     }
 
     /// <summary>Sortiert die Liste nach der geklickten Spalte (erneuter Klick kehrt um).</summary>
@@ -256,6 +276,8 @@ public sealed class WhitelistForm : Form
                 e.FullPath ?? e.ProcessName ?? ""
             })
             { Tag = e };
+            // bool-Tag -> die Zelle wird als klickbare Checkbox gezeichnet.
+            item.SubItems[3].Tag = e.Enabled;
             _list.Items.Add(item);
         }
     }
