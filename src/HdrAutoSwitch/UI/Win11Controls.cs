@@ -549,9 +549,9 @@ internal sealed class ModernComboBox : Control
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
             // Eigener Rahmen in Palettenfarbe, Radius passend zur
-            // DWM-Fensterrundung (ROUNDSMALL = 4px)
+            // DWM-Fensterrundung (DWMWCP_ROUND = ~8px)
             using (var border = new Pen(p.Border))
-            using (var borderPath = Win11Paint.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), 4))
+            using (var borderPath = Win11Paint.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), 8))
                 g.DrawPath(border, borderPath);
 
             for (int i = 0; i < _items.Count; i++)
@@ -559,10 +559,13 @@ internal sealed class ModernComboBox : Control
                 var bounds = new Rectangle(0, i * ItemHeight, Width, ItemHeight);
                 if (i == _hot)
                 {
+                    // Hover-Pill mit demselben Radius wie die Controls (5px)
+                    var pill = Rectangle.Inflate(bounds, -4, -2);
                     using var hover = new SolidBrush(p.Hover);
-                    g.FillRectangle(hover, Rectangle.Inflate(bounds, -3, -2));
+                    using var pillPath = Win11Paint.RoundedRect(pill, 5);
+                    g.FillPath(hover, pillPath);
                     using var accent = new SolidBrush(p.Accent);
-                    g.FillRectangle(accent, bounds.X + 3, bounds.Y + 9, 3, bounds.Height - 18);
+                    g.FillRectangle(accent, pill.X + 2, pill.Y + (pill.Height - 12) / 2, 3, 12);
                 }
                 TextRenderer.DrawText(g, _items[i], Font,
                     new Rectangle(bounds.X + 12, bounds.Y, bounds.Width - 16, bounds.Height), p.Text,

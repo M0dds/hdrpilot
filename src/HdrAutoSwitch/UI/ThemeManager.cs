@@ -484,17 +484,18 @@ internal static class ThemeManager
 
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
-    private const int DWMWCP_ROUNDSMALL = 3;
+    private const int DWMWCP_ROUND = 2; // Standard-Fensterrundung (~8px)
 
     /// <summary>
-    /// Rundet die Ecken eines Popup-Fensters im Windows-11-Stil (kleiner Radius,
-    /// wie bei Menüs). Nach dem Anzeigen aufrufen (Handle muss existieren).
+    /// Rundet die Ecken eines Popup-Fensters im Windows-11-Stil
+    /// (Standard-Rundung ~8px, passend zu den 5px der Controls).
+    /// Nach dem Anzeigen aufrufen (Handle muss existieren).
     /// </summary>
     public static void RoundPopupCorners(Form popup)
     {
         try
         {
-            int pref = DWMWCP_ROUNDSMALL;
+            int pref = DWMWCP_ROUND;
             _ = DwmSetWindowAttribute(popup.Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref pref, sizeof(int));
         }
         catch
