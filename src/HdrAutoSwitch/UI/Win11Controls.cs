@@ -262,6 +262,84 @@ internal sealed class ModernButton : Button
 }
 
 /// <summary>
+/// Eingabefeld im Windows-11-Stil: gleiche Maße wie <see cref="ModernComboBox"/>
+/// (34px hoch, 5px-Radius, Palette-Outline, Akzentrahmen bei Fokus). Innen sitzt
+/// eine rahmenlose TextBox, außen wird selbst gezeichnet.
+/// </summary>
+internal sealed class ModernTextBox : Control
+{
+    private readonly TextBox _inner = new() { BorderStyle = BorderStyle.None };
+
+    public ModernTextBox()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        Height = 34;
+        MinimumSize = new Size(0, 34);
+        Cursor = Cursors.IBeam;
+
+        _inner.TextChanged += (_, _) => OnTextChanged(EventArgs.Empty);
+        _inner.GotFocus += (_, _) => Invalidate();
+        _inner.LostFocus += (_, _) => Invalidate();
+        Controls.Add(_inner);
+
+        Click += (_, _) => _inner.Focus();
+    }
+
+    /// <summary>Der eingegebene Text (durchgereicht an die innere TextBox).</summary>
+    [System.Diagnostics.CodeAnalysis.AllowNull]
+    public override string Text
+    {
+        get => _inner.Text;
+        set => _inner.Text = value ?? "";
+    }
+
+    protected override void OnGotFocus(EventArgs e)
+    {
+        base.OnGotFocus(e);
+        _inner.Focus();
+    }
+
+    protected override void OnFontChanged(EventArgs e)
+    {
+        base.OnFontChanged(e);
+        _inner.Font = Font;
+        LayoutInner();
+    }
+
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        LayoutInner();
+    }
+
+    private void LayoutInner()
+    {
+        int innerHeight = _inner.PreferredHeight;
+        _inner.SetBounds(10, Math.Max(1, (Height - innerHeight) / 2), Math.Max(10, Width - 20), innerHeight);
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var p = ThemeManager.Palette;
+        // Farben der inneren TextBox immer mit der Palette synchron halten.
+        _inner.BackColor = p.InputBack;
+        _inner.ForeColor = p.Text;
+
+        var g = e.Graphics;
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        g.Clear(Parent?.BackColor ?? p.WindowBack);
+
+        var rect = new Rectangle(0, 0, Width - 1, Height - 1);
+        using var path = Win11Paint.RoundedRect(rect, 5);
+        using var back = new SolidBrush(p.InputBack);
+        g.FillPath(back, path);
+        using var pen = new Pen(_inner.Focused ? p.Accent : p.Border);
+        g.DrawPath(pen, path);
+    }
+}
+
+/// <summary>
 /// Vollständig selbst gezeichnete Dropdown-Auswahl im Windows-11-Stil.
 ///
 /// Hintergrund: Die native WinForms-ComboBox (DropDownList) lässt sich unter

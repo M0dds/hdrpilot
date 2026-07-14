@@ -9,9 +9,9 @@ namespace HdrAutoSwitch.UI;
 /// </summary>
 public sealed class EntryEditForm : Form
 {
-    private readonly TextBox _name = new();
-    private readonly TextBox _processName = new();
-    private readonly TextBox _path = new();
+    private readonly ModernTextBox _name = new();
+    private readonly ModernTextBox _processName = new();
+    private readonly ModernTextBox _path = new();
     private readonly ModernComboBox _mode = new();
     private readonly CheckBox _enabled = new();
     private readonly CheckedListBox _monitors = new();
@@ -37,7 +37,22 @@ public sealed class EntryEditForm : Form
         BuildLayout();
         LoadFromEntry(entry);
         ThemeManager.Apply(this);
+        FitHeightToContent();
     }
+
+    /// <summary>
+    /// Passt die Fensterhöhe an den Inhalt an, damit unter der letzten Card
+    /// keine überflüssige Luft zu den Buttons bleibt.
+    /// </summary>
+    private void FitHeightToContent()
+    {
+        if (_root is null || _footer is null) return;
+        int contentHeight = _root.GetPreferredSize(new Size(ClientSize.Width, 0)).Height;
+        ClientSize = new Size(ClientSize.Width, contentHeight + _footer.Height);
+    }
+
+    private TableLayoutPanel? _root;
+    private Control? _footer;
 
     private void BuildLayout()
     {
@@ -58,11 +73,12 @@ public sealed class EntryEditForm : Form
         CardLayout.AddRow(program, Loc.T("entry.processName"), _processName);
 
         // Pfad mit Durchsuchen-Button
-        var pathPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Height = 36, Margin = new Padding(0, 3, 0, 3) };
+        var pathPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Height = 34, Margin = new Padding(0, 3, 0, 3) };
         pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
-        _path.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-        var browse = new ModernButton { Text = "…", Dock = DockStyle.Fill, Padding = new Padding(0), MinimumSize = new Size(0, 30), Margin = new Padding(6, 0, 0, 0) };
+        pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 46));
+        _path.Dock = DockStyle.Fill;
+        _path.Margin = new Padding(0);
+        var browse = new ModernButton { Text = "…", Dock = DockStyle.Fill, Padding = new Padding(0), Margin = new Padding(6, 0, 0, 0) };
         browse.Click += (_, _) =>
         {
             using var dlg = new OpenFileDialog { Title = Loc.T("dlg.pickExe"), Filter = Loc.T("dlg.exeFilter") };
@@ -99,21 +115,27 @@ public sealed class EntryEditForm : Form
         _allMonitors.AutoSize = true;
         _allMonitors.CheckedChanged += (_, _) => _monitors.Enabled = _selectedMonitors.Checked;
         CardLayout.AddWide(target, _allMonitors);
+        _allMonitors.Margin = new Padding(0, 2, 0, 2);
 
         _selectedMonitors.Text = Loc.T("entry.selected");
         _selectedMonitors.AutoSize = true;
         _selectedMonitors.CheckedChanged += (_, _) => _monitors.Enabled = _selectedMonitors.Checked;
         CardLayout.AddWide(target, _selectedMonitors);
+        _selectedMonitors.Margin = new Padding(0, 2, 0, 2);
 
         _monitors.CheckOnClick = true;
-        _monitors.Height = 96;
+        _monitors.IntegralHeight = false;
         _monitors.Dock = DockStyle.Top;
         foreach (var m in _monitorList)
         {
             string label = m.HdrSupported ? m.FriendlyName : $"{m.FriendlyName} {Loc.T("entry.noHdr")}";
             _monitors.Items.Add(new MonitorItem(m, label));
         }
+        // Höhe exakt an die Monitoranzahl anpassen - keine leere Fläche in der Card.
+        _monitors.Height = Math.Max(1, _monitors.Items.Count) * 26 + 4;
         CardLayout.AddWide(target, _monitors);
+        // Einrückung unter "Nur ausgewählte Monitore" macht die Zugehörigkeit sichtbar.
+        _monitors.Margin = new Padding(24, 0, 0, 2);
 
         CardLayout.AddRootRow(root, CardLayout.WrapInCard(target));
 
@@ -122,8 +144,11 @@ public sealed class EntryEditForm : Form
         var cancel = new ModernButton { Text = Loc.T("common.cancel"), DialogResult = DialogResult.Cancel };
         ok.Click += (_, _) => { if (ValidateInput()) { SaveToResult(); } else DialogResult = DialogResult.None; };
 
+        var footer = CardLayout.Footer(24, null, ok, cancel);
         Controls.Add(root);
-        Controls.Add(CardLayout.Footer(24, null, ok, cancel));
+        Controls.Add(footer);
+        _root = root;
+        _footer = footer;
         AcceptButton = ok;
         CancelButton = cancel;
     }

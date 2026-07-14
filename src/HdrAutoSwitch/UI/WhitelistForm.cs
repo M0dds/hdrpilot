@@ -106,8 +106,8 @@ public sealed class WhitelistForm : Form
         toolbar.Controls.AddRange(new Control[] { _addFile, _addRunning, _edit, _remove });
         root.Controls.Add(toolbar, 0, 2);
 
-        // ---- Liste in einer Card ----
-        var card = new CardPanel { Dock = DockStyle.Fill, Padding = new Padding(10, 8, 10, 10) };
+        // ---- Liste in einer Card (Margin 0, damit sie mit Buttons/Fußleiste fluchtet) ----
+        var card = new CardPanel { Dock = DockStyle.Fill, Padding = new Padding(10, 8, 10, 10), Margin = new Padding(0) };
         _list.Dock = DockStyle.Fill;
         _list.View = View.Details;
         _list.FullRowSelect = true;

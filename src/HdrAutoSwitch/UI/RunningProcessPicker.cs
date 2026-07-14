@@ -9,7 +9,7 @@ namespace HdrAutoSwitch.UI;
 public sealed class RunningProcessPicker : Form
 {
     private readonly ListView _list = new();
-    private readonly TextBox _filter = new();
+    private readonly ModernTextBox _filter = new();
     private List<ProcessEvent> _all = new();
 
     public ProcessEvent? SelectedProcess { get; private set; }
@@ -40,7 +40,7 @@ public sealed class RunningProcessPicker : Form
         filterPanel.Controls.Add(_filter);
         root.Controls.Add(filterPanel, 0, 0);
 
-        var card = new CardPanel { Dock = DockStyle.Fill, Padding = new Padding(8, 6, 8, 8) };
+        var card = new CardPanel { Dock = DockStyle.Fill, Padding = new Padding(8, 6, 8, 8), Margin = new Padding(0) };
         _list.Tag = "native-scrollbars"; // lange, scrollende Liste -> dunkle Scrollbars
         _list.Dock = DockStyle.Fill;
         _list.View = View.Details;

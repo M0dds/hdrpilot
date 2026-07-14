@@ -46,6 +46,18 @@ public sealed class SettingsForm : Form
         BuildLayout();
         LoadFromConfig();
         ThemeManager.Apply(this);
+        FitHeightToContent();
+    }
+
+    private TableLayoutPanel? _root;
+    private Control? _footer;
+
+    /// <summary>Passt die Fensterhöhe an den Inhalt an (keine Leerfläche über den Buttons).</summary>
+    private void FitHeightToContent()
+    {
+        if (_root is null || _footer is null) return;
+        int contentHeight = _root.GetPreferredSize(new Size(ClientSize.Width, 0)).Height;
+        ClientSize = new Size(ClientSize.Width, contentHeight + _footer.Height);
     }
 
     private void BuildLayout()
@@ -118,8 +130,11 @@ public sealed class SettingsForm : Form
         // Nicht-modal geöffnet -> DialogResult schließt nicht, explizit schließen.
         cancel.Click += (_, _) => Close();
 
+        var footer = CardLayout.Footer(24, null, save, cancel);
         Controls.Add(root);
-        Controls.Add(CardLayout.Footer(24, null, save, cancel));
+        Controls.Add(footer);
+        _root = root;
+        _footer = footer;
         AcceptButton = save;
         CancelButton = cancel;
     }

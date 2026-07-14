@@ -111,7 +111,7 @@ internal static class ThemeManager
         {
             switch (c)
             {
-                case ModernButton or ModernComboBox:
+                case ModernButton or ModernComboBox or ModernTextBox:
                     // Zeichnen sich selbst mit Palette-Farben - nichts zu tun.
                     break;
 
@@ -164,7 +164,8 @@ internal static class ThemeManager
                     c.ForeColor = p.Text;
                     break;
             }
-            if (c.HasChildren)
+            // ModernTextBox verwaltet seine innere TextBox selbst - nicht restylen.
+            if (c.HasChildren && c is not ModernTextBox)
                 StyleChildren(c, p);
         }
     }
