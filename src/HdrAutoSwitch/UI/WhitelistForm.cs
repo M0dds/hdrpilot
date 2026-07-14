@@ -122,7 +122,9 @@ public sealed class WhitelistForm : Form
         _list.Columns.Add(_columnTitles[4], 180);
         _list.DoubleClick += (_, _) => EditSelected();
         _list.SelectedIndexChanged += (_, _) => UpdateButtonStates();
-        _list.Resize += (_, _) => FitLastColumn();
+        // ClientSizeChanged statt Resize: feuert auch, wenn die vertikale
+        // Scrollbar erscheint/verschwindet und sich nur die Innenbreite ändert.
+        _list.ClientSizeChanged += (_, _) => FitLastColumn();
         _list.ColumnClick += (_, e) => SortBy(e.Column);
         // Spaltenbreiten sind fixiert (letzte Spalte passt sich automatisch an).
         // Verhindert auch das Aufziehen des Header-Füllbereichs rechts.
@@ -206,14 +208,18 @@ public sealed class WhitelistForm : Form
         }
     }
 
-    /// <summary>Letzte Spalte füllt die Restbreite - verhindert die horizontale Scrollbar.</summary>
+    /// <summary>
+    /// Letzte Spalte füllt die Restbreite EXAKT bis zur Kante - sonst bleibt
+    /// rechts ein sichtbarer Streifen des system-gezeichneten Header-Füllbereichs
+    /// (und bei Überbreite käme eine horizontale Scrollbar).
+    /// </summary>
     private void FitLastColumn()
     {
         if (_list.Columns.Count == 0) return;
         int others = 0;
         for (int i = 0; i < _list.Columns.Count - 1; i++)
             others += _list.Columns[i].Width;
-        _list.Columns[^1].Width = Math.Max(120, _list.ClientSize.Width - others - 4);
+        _list.Columns[^1].Width = Math.Max(120, _list.ClientSize.Width - others);
     }
 
     private void UpdateButtonStates()
