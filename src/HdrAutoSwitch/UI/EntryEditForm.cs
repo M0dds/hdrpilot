@@ -75,10 +75,19 @@ public sealed class EntryEditForm : Form
         // Pfad mit Durchsuchen-Button
         var pathPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Height = 34, Margin = new Padding(0, 3, 0, 3) };
         pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 46));
+        pathPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 40)); // 34px Button + 6px Abstand
         _path.Dock = DockStyle.Fill;
         _path.Margin = new Padding(0);
-        var browse = new ModernButton { Text = "…", Dock = DockStyle.Fill, Padding = new Padding(0), Margin = new Padding(6, 0, 0, 0) };
+        // Quadratischer Icon-Button; "" (More) ist im Gegensatz zu "…"
+        // vertikal zentriert statt auf der Grundlinie.
+        var browse = new ModernButton
+        {
+            Text = "",
+            Font = UiFonts.Icon(),
+            Dock = DockStyle.Fill,
+            Padding = new Padding(0),
+            Margin = new Padding(6, 0, 0, 0)
+        };
         browse.Click += (_, _) =>
         {
             using var dlg = new OpenFileDialog { Title = Loc.T("dlg.pickExe"), Filter = Loc.T("dlg.exeFilter") };

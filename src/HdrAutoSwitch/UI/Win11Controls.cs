@@ -11,6 +11,7 @@ internal static class UiFonts
 {
     private static readonly string BodyFamily = Pick("Segoe UI Variable Text", "Segoe UI");
     private static readonly string DisplayFamily = Pick("Segoe UI Variable Display", "Segoe UI");
+    private static readonly string IconFamily = Pick("Segoe Fluent Icons", "Segoe MDL2 Assets", "Segoe UI");
 
     private static string Pick(params string[] preferred)
     {
@@ -34,6 +35,9 @@ internal static class UiFonts
 
     /// <summary>Überschriften (Win11 "Subtitle"/"Title").</summary>
     public static Font Display(float size) => new(DisplayFamily, size, FontStyle.Bold);
+
+    /// <summary>Symbolschrift (Segoe Fluent Icons, z. B. "" = More).</summary>
+    public static Font Icon(float size = 10f) => new(IconFamily, size);
 }
 
 /// <summary>
@@ -523,13 +527,16 @@ internal sealed class ModernComboBox : Control
     private sealed class PopupList : Control
     {
         private const int ItemHeight = 32;
+        // Innen-Padding oben/unten, damit der erste/letzte Hover-Pill denselben
+        // Abstand zum Rand hat wie seitlich (Pad + Pill-Einzug 2 = 4px).
+        private const int Pad = 2;
         private readonly List<string> _items;
         private int _hot;
 
         public event Action<int>? Committed;
 
-        /// <summary>Gesamthöhe der Liste inkl. Rahmen (für die Popup-Form).</summary>
-        public int PreferredListHeight => _items.Count * ItemHeight + 2;
+        /// <summary>Gesamthöhe der Liste inkl. Rahmen und Innen-Padding (für die Popup-Form).</summary>
+        public int PreferredListHeight => _items.Count * ItemHeight + Pad * 2 + 2;
 
         public PopupList(List<string> items, int selectedIndex, Font font)
         {
@@ -556,7 +563,7 @@ internal sealed class ModernComboBox : Control
 
             for (int i = 0; i < _items.Count; i++)
             {
-                var bounds = new Rectangle(0, i * ItemHeight, Width, ItemHeight);
+                var bounds = new Rectangle(0, Pad + i * ItemHeight, Width, ItemHeight);
                 if (i == _hot)
                 {
                     // Hover-Pill mit demselben Radius wie die Controls (5px)
@@ -576,7 +583,7 @@ internal sealed class ModernComboBox : Control
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
-            int idx = e.Y / ItemHeight;
+            int idx = (e.Y - Pad) / ItemHeight;
             if (idx >= 0 && idx < _items.Count && idx != _hot)
             {
                 _hot = idx;
@@ -587,7 +594,7 @@ internal sealed class ModernComboBox : Control
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
-            int idx = e.Y / ItemHeight;
+            int idx = (e.Y - Pad) / ItemHeight;
             if (idx >= 0 && idx < _items.Count)
                 Committed?.Invoke(idx);
         }
