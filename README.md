@@ -27,6 +27,11 @@ games to a whitelist, and HDR turns on the moment they start and off once they c
 
 - **Automatic HDR per program** via a whitelist — matched by process name
   (case-insensitive), full path, or both.
+- **Windows Auto HDR per game** (opt-in per entry): HDR Pilot sets the per-app
+  Auto HDR preference in the Windows graphics settings, and — if Auto HDR is
+  turned off globally — enables it just for the game session and restores the
+  previous state afterwards. So SDR games get the HDR upgrade without leaving
+  Auto HDR on system-wide.
 - **State restoration**: HDR is only enabled where it was off, and the previous
   state is restored once all whitelisted programs have exited (configurable).
 - **Multi-monitor aware**: target the primary display only (default), all
@@ -85,6 +90,8 @@ src/HdrPilot/
 ├── Native/          P/Invoke signatures for the DisplayConfig API
 ├── Core/
 │   ├── HdrController      Wraps the native API (24H2 + legacy fallback)
+│   ├── AutoHdrController  Per-app Auto HDR tokens + session-scoped global toggle
+│   ├── RtxHdrDetector     Best-effort RTX HDR detection (NVIDIA driver profiles)
 │   ├── ProcessWatcher     WMI start/stop events + enumeration
 │   ├── ConfigStore        JSON persistence + autostart registry key
 │   └── AutoSwitchEngine   Core logic: ref-counting, debounce, switching
@@ -101,10 +108,16 @@ dark mode.
 - **Auto Color Management (ACM):** if Windows' "Automatically manage color for
   apps" is enabled, HDR detection can behave differently. HDR Pilot detects ACM
   via the 24H2 API, logs a warning, and keeps working.
-- **What it does *not* do:** HDR Pilot doesn't touch tone mapping, SDR brightness,
-  or color calibration. It toggles HDR exactly like `Win + Alt + B` — just
-  automatically and per program/monitor. For calibration, use the Windows HDR
-  Calibration app.
+- **NVIDIA RTX HDR:** when you enable Auto HDR for a game, HDR Pilot warns if
+  RTX HDR appears to be active for it — both tone-map the image and conflict, so
+  use only one. Note that current NVIDIA drivers manage RTX HDR exclusively
+  inside the NVIDIA app (the state no longer lives in the driver profiles), so
+  HDR Pilot cannot toggle RTX HDR for you and the conflict detection is
+  best-effort.
+- **What it does *not* do:** HDR Pilot doesn't touch tone mapping parameters,
+  SDR brightness, or color calibration. It toggles HDR (and, opt-in, Windows
+  Auto HDR) exactly like the Windows settings do — just automatically and per
+  program/monitor. For calibration, use the Windows HDR Calibration app.
 - Without admin rights, `Win32_ProcessStartTrace` is unavailable; the app then
   falls back to WMI instance events (`WITHIN 2`) automatically.
 
