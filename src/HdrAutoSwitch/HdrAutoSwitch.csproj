@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- Alle DisplayConfig-Strukturen sind hand-deklariertes P/Invoke; ein Windows-SDK-
+         Targeting (net8.0-windows10.x) ist nicht nötig und würde die .exe nur aufblähen.
+         Der Code prüft zur Laufzeit die Build-Nummer und nutzt die 24H2-API nur, wenn vorhanden. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>HdrAutoSwitch</AssemblyName>
+    <RootNamespace>HdrAutoSwitch</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>HDR AutoSwitch</Product>
+    <!-- Single-file-freundlich; kein Trimming, damit WMI/Reflection sicher funktionieren.
+         Publish-Befehl: siehe README (dotnet publish, Release, win-x64, self-contained,
+         PublishSingleFile + IncludeNativeLibrariesForSelfExtract). -->
+    <PublishSingleFile Condition="'$(_IsPublishing)' == 'true'">true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>embedded</DebugType>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WMI-Prozessereignisse (ereignisbasiert statt Polling -> minimale Last) -->
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

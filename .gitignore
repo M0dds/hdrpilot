@@ -1,0 +1,13 @@
+# Build-Ausgaben
+bin/
+obj/
+publish/
+
+# IDE
+.vs/
+*.user
+*.suo
+
+# Betriebssystem
+Thumbs.db
+Desktop.ini
